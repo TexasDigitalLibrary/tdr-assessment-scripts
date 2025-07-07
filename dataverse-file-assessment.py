@@ -8,9 +8,9 @@ from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
 #toggle for test environment (incomplete run, faster to complete)
-test = True
+test = False
 #toggle to only look at your/one institution in TDR
-only_my_institution = False 
+only_my_institution = True 
 #toggle for stage 3 retrieval
 versionsAPI = True
 
@@ -78,6 +78,7 @@ headers_tdr = {
 params_tdr_ut_austin = {
     'q': query,
     'subtree': 'utexas',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -86,6 +87,7 @@ params_tdr_ut_austin = {
 params_tdr_baylor = {
     'q': query,
     'subtree': 'baylor',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -94,6 +96,7 @@ params_tdr_baylor = {
 params_tdr_smu = {
     'q': query,
     'subtree': 'smu',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -102,6 +105,7 @@ params_tdr_smu = {
 params_tdr_tamu = {
     'q': query,
     'subtree': 'tamu',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -110,6 +114,7 @@ params_tdr_tamu = {
 params_tdr_txst = {
     'q': query,
     'subtree': 'txst',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -118,6 +123,7 @@ params_tdr_txst = {
 params_tdr_ttu = {
     'q': query,
     'subtree': 'ttu',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -126,6 +132,7 @@ params_tdr_ttu = {
 params_tdr_houston = {
     'q': query,
     'subtree': 'uh',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -134,6 +141,7 @@ params_tdr_houston = {
 params_tdr_hscfw = {
     'q': query,
     'subtree': 'unthsc',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -142,6 +150,7 @@ params_tdr_hscfw = {
 params_tdr_tamug = {
     'q': query,
     'subtree': 'tamug',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -149,6 +158,7 @@ params_tdr_tamug = {
 params_tdr_tamui = {
     'q': query,
     'subtree': 'tamiu',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -156,6 +166,7 @@ params_tdr_tamui = {
 params_tdr_utsah = {
     'q': query,
     'subtree': 'uthscsa',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -163,6 +174,7 @@ params_tdr_utsah = {
 params_tdr_utswm = {
     'q': query,
     'subtree': 'utswmed',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -171,6 +183,7 @@ params_tdr_utswm = {
 params_tdr_uta = {
     'q': query,
     'subtree': 'uta',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -179,6 +192,7 @@ params_tdr_uta = {
 params_tdr_twu = {
     'q': query,
     'subtree': 'twu',
+    'type': 'dataset',
     'start': page_start_dataverse,
     'page': page_increment,
     'per_page': page_limit_dataverse
@@ -237,7 +251,7 @@ def retrieve_page_dataverse(url, params=None, headers=None):
         response.raise_for_status()  # Raise an exception for errors
         return response.json()
     except requests.RequestException as e:
-        print(f"Error fetching page: {e}")
+        print(f"Error retrieving page: {e}")
         return {'data': {'items': [], 'total_count': 0}}
 
 def retrieve_all_data_dataverse(url, params, headers):
@@ -251,7 +265,7 @@ def retrieve_all_data_dataverse(url, params, headers):
         data = retrieve_page_dataverse(url, params, headers)  
         total_count = data['data']['total_count']
         total_pages = math.ceil(total_count/page_limit_dataverse)
-        print(f"Fetching Page {params['page']} of {total_pages} pages...\n")
+        print(f"Retrieving Page {params['page']} of {total_pages} pages...\n")
 
         if not data['data']:
             print("No data found.")
@@ -316,12 +330,12 @@ print("Starting TDR filtering.\n")
 data_select_tdr = []
 
 for item in all_data:
-    id = item.get('global_id', "")
-    type = item.get('type', "")
-    institution = item.get('institution',"")
-    status = item.get('versionState', "")
-    name = item.get('name', "")
-    dataverse = item.get('name_of_dataverse', "")
+    id = item.get('global_id', '')
+    type = item.get('type', '')
+    institution = item.get('institution','')
+    status = item.get('versionState', '')
+    name = item.get('name', '')
+    dataverse = item.get('name_of_dataverse', '')
     majorV = item.get('majorVersion', 0)
     minorV = item.get('minorVersion', 0)
     comboV = f"{majorV}.{minorV}"
@@ -380,6 +394,7 @@ else:
     filtered_tdr.to_csv(f"outputs/{todayDate}_all-institutions_all-deposits.csv")
 filtered_tdr_deduplicated = filtered_tdr.drop_duplicates(subset=['doi'], keep="first")
 filtered_tdr_deduplicated.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-deposits-deduplicated.csv")
+print(f'Total datasets to be analyzed: {len(filtered_tdr_deduplicated)}.\n')
 
 #create df of published datasets with draft version (retains both entries)
 commonColumns = ['doi', 'title']
@@ -401,7 +416,7 @@ for doi in filtered_tdr_deduplicated['doi']:
             print()
             results.append(response.json())
         else:
-            print(f"Error fetching {doi}: {response.status_code}, {response.text}")
+            print(f"Error retrieving {doi}: {response.status_code}, {response.text}")
     except requests.exceptions.RequestException as e:
         print(f"Timeout error on DOI {doi}: {e}")
 
@@ -411,16 +426,16 @@ data_tdr_native = {
 print("Beginning dataframe subsetting\n")
 data_select_tdr_native = [] 
 for item in data_tdr_native['datasets']:
-    data = item.get('data', "")
-    datasetID = data.get('id', "")
-    pubDate = data.get('publicationDate', "")
+    data = item.get('data', '')
+    datasetID = data.get('id', '')
+    pubDate = data.get('publicationDate', '')
     latest = data.get('latestVersion', {})
-    status = latest.get('versionState', "")
-    status2 = latest.get('latestVersionPublishingState', "")
-    doi = latest.get('datasetPersistentId', "")
-    updateDate = latest.get('lastUpdateTime', "")
-    createDate = latest.get('createTime', "")
-    releaseDate = latest.get('releaseTime', "")
+    status = latest.get('versionState', '')
+    status2 = latest.get('latestVersionPublishingState', '')
+    doi = latest.get('datasetPersistentId', '')
+    updateDate = latest.get('lastUpdateTime', '')
+    createDate = latest.get('createTime', '')
+    releaseDate = latest.get('releaseTime', '')
     license = latest.get('license', {})
     licenseName = license.get('name', None)
     terms = latest.get('termsOfUse', None)
@@ -450,25 +465,63 @@ for item in data_tdr_native['datasets']:
             'reuseRequirements': usage,
             #'fileCount': fileCount,
             #'unique_content_types': list(unique_content_types),
-            'fileID': file_data.get('id', ""),
-            'public': file_data.get('restricted', ""),
-            'filename': file_data.get('filename', ""),
-            'mimeType': file_data.get('contentType', ""),
-            'friendlyType': file_data.get('friendlyType', ""),
-            'tabular': file_data.get('tabularData', ""),
+            'fileID': file_data.get('id', ''),
+            'public': file_data.get('restricted', ''),
+            'filename': file_data.get('filename', ''),
+            'mimeType': file_data.get('contentType', ''),
+            'friendlyType': file_data.get('friendlyType', ''),
+            'tabular': file_data.get('tabularData', ''),
             'fileSize': file_data.get('filesize', 0),
-            'storageIdentifier': file_data.get('storageIdentifier', ""),
-            'creationDate': file_data.get('creationDate', ""),
-            'publicationDate': file_data.get('publicationDate', "")
-
+            'storageIdentifier': file_data.get('storageIdentifier', ''),
+            'creationDate': file_data.get('creationDate', ''),
+            'publicationDate': file_data.get('publicationDate', '')
         }
         data_select_tdr_native.append(file_entry)
 
+#getting dataframe with entries for individual authors
+author_entries = []
+for item in data_tdr_native['datasets']:
+    data = item.get('data', {})
+    latest = data.get('latestVersion', {})
+    doi = latest.get('datasetPersistentId', '')
+    citation = latest.get('metadataBlocks', {}).get('citation', {})
+    status2 = latest.get('latestVersionPublishingState', '')
+    fields = citation.get('fields', [])
+    for field in fields:
+        if field['typeName'] == 'author':
+            for author in field.get('value', []):
+                # Basic values
+                name = author.get('authorName', {}).get('value', '')
+                affiliation = author.get('authorAffiliation', {}).get('value', '')
+                identifier = author.get('authorIdentifier', {}).get('value', '')
+                scheme = author.get('authorIdentifierScheme', {}).get('value', '')
+
+                # Expanded values (if available)
+                affiliation_expanded = author.get('authorAffiliation', {}).get('expandedvalue', {}).get('termName', '')
+                identifier_expanded = author.get('authorIdentifier', {}).get('expandedvalue', {}).get('@id', '')
+
+                affiliationName = affiliation_expanded if affiliation_expanded else affiliation
+                # Only get the ROR URL if expandedvalue exists
+                affiliation_ror = affiliation if affiliation_expanded else None
+
+                author_entry = {
+                    'doi': doi,
+                    'currentStatus': status2,
+                    'authorName': name,
+                    'authorAffiliation': affiliationName,
+                    'rorID': affiliation_ror,
+                    'authorIdentifier': identifier,
+                    'authorIdentifierExpanded': identifier_expanded,
+                    'authorIdentifierScheme': scheme
+                }
+                author_entries.append(author_entry)
+
 df_select_tdr_native = pd.json_normalize(data_select_tdr_native)
+df_author_entries = pd.json_normalize(author_entries)
 df_select_tdr_native['doi'] = df_select_tdr_native['doi'].str.replace('doi:', '')
+df_author_entries['doi'] = df_author_entries['doi'].str.replace('doi:', '')
 df_select_tdr_native['creationDate'] = pd.to_datetime(df_select_tdr_native['creationDate'])
 df_select_tdr_native['fileCreationYear'] = df_select_tdr_native['creationDate'].dt.year
-df_select_tdr_native.to_csv(f"outputs/{todayDate}_{institutionFilename}_initial-native-output.csv")
 
 ten_kb = 1 * 1024
 one_mb = 1 * 1024 * 1024
@@ -520,7 +573,7 @@ if versionsAPI:
                 print()
                 results_versions.append(response.json())
             else:
-                print(f"Error fetching dataset #{datasetID}: {response.status_code}, {response.text}")
+                print(f"Error retrieving dataset #{datasetID}: {response.status_code}, {response.text}")
         except requests.exceptions.RequestException as e:
             print(f"Timeout error on DOI {doi}: {e}")
 
@@ -532,14 +585,14 @@ if versionsAPI:
     for dataset in data_tdr_versions['datasets']:
         data = dataset.get('data', [])
         for item in data:
-            doi = item.get('datasetPersistentId', "")
-            id = item.get("id", "")
-            datasetid = item.get('datasetId', "")
+            doi = item.get('datasetPersistentId', '')
+            id = item.get("id", '')
+            datasetid = item.get('datasetId', '')
             majorV = str(item.get('versionNumber', 0))
             minorV = str(item.get('versionMinorNumber', 0))
-            status2 = latest.get('latestVersionPublishingState', "")
+            status2 = latest.get('latestVersionPublishingState', '')
             comboV = f"{majorV}.{minorV}"
-            status = item.get('versionState', "")
+            status = item.get('versionState', '')
             for file in item.get('files', []):
                 fileInfo = file['dataFile']
                 total_filesize += fileInfo['filesize']
@@ -551,10 +604,10 @@ if versionsAPI:
                     #'majorVersion': majorV,
                     #'minorVersion': minorV,
                     'totalVersion': comboV,
-                    'fileID': fileInfo.get('id', ""),
-                    'filename': fileInfo.get('filename', ""),
-                    'mimeType': fileInfo.get('contentType', ""),
-                    'friendlyType': fileInfo.get('friendlyType', ""),
+                    'fileID': fileInfo.get('id', ''),
+                    'filename': fileInfo.get('filename', ''),
+                    'mimeType': fileInfo.get('contentType', ''),
+                    'friendlyType': fileInfo.get('friendlyType', ''),
                     #'status': status,
                     'currentStatus': status2,
                     #'tabular': fileInfo.get('tabularData', ''),
@@ -564,10 +617,47 @@ if versionsAPI:
                     'creationDate': fileInfo.get('creationDate', ''),
                     'publicationDate': fileInfo.get('publicationDate', '')
                 })
+    #getting dataframe with entries for individual authors
+    author_entries_versions = []
+    for dataset in data_tdr_versions['datasets']:
+        data = dataset.get('data', [])
+        for item in data:
+            doi = item.get('datasetPersistentId', '')
+            id = item.get("id", '')
+            status2 = item.get('latestVersionPublishingState', '')
+            datasetid = item.get('datasetId', '')
+            citation = item.get('metadataBlocks', {}).get('citation', {})
+            fields = citation.get('fields', [])
+            for field in fields:
+                if field['typeName'] == 'author':
+                    for author in field.get('value', []):
+                        name = author.get('authorName', {}).get('value', '')
+                        affiliation = author.get('authorAffiliation', {}).get('value', '')
+                        identifier = author.get('authorIdentifier', {}).get('value', '')
+                        scheme = author.get('authorIdentifierScheme', {}).get('value', '')
 
+                        affiliation_expanded = author.get('authorAffiliation', {}).get('expandedvalue', {}).get('termName', '')
+                        identifier_expanded = author.get('authorIdentifier', {}).get('expandedvalue', {}).get('@id', '')
+
+                        affiliationName = affiliation_expanded if affiliation_expanded else affiliation
+                        affiliation_ror = affiliation if affiliation_expanded else None
+
+                        author_entry = {
+                            'doi': doi,
+                            'currentStatus': status2,
+                            'authorName': name,
+                            'authorAffiliation': affiliationName,
+                            'rorID': affiliation_ror,
+                            'authorIdentifier': identifier,
+                            'authorIdentifierExpanded': identifier_expanded,
+                            'authorIdentifierScheme': scheme
+                        }
+                        author_entries_versions.append(author_entry)
 
     df_select_tdr_versions = pd.json_normalize(data_select_tdr_versions)
+    df_author_entries_versions = pd.json_normalize(author_entries_versions)
     df_select_tdr_versions['doi'] = df_select_tdr_versions['doi'].str.replace('doi:', '')
+    df_author_entries_versions['doi'] = df_author_entries_versions['doi'].str.replace('doi:', '')
     #removing duplicate entries for a given file that has not changed across multiple versions
     df_select_tdr_versions['totalVersion'] = df_select_tdr_versions['totalVersion'].astype(float)
     df_select_tdr_versions = df_select_tdr_versions.sort_values(by='totalVersion')
@@ -614,10 +704,13 @@ if versionsAPI:
     df_all_files_concat_deduplicated = df_all_files_concat.drop_duplicates(subset=['storageIdentifier'], keep='first')
     df_all_files_concat_deduplicated['versionID'].replace(9999999, None, inplace=True)
 
+    df_all_authors_concat = pd.concat([df_author_entries, df_author_entries_versions], ignore_index=True)
+    df_all_authors_concat_deduplicated = df_all_authors_concat.drop_duplicates(subset=['doi', 'authorName', 'authorAffiliation', 'currentStatus'], keep='first')
 else:
     #sort on status and then total version, setting 'DRAFT' at bottom to remove this version for published datasets that are in draft state, retain entry of 'PUBLISHED' and then to keep the earliest version
     df_native_pruned = df_native_pruned.sort_values(by=['currentStatus', 'totalVersion'], ascending=[False, True])
     df_all_files_concat_deduplicated = df_native_pruned.drop_duplicates(subset=['storageIdentifier'], keep='first')
+    df_all_authors_concat_deduplicated = df_author_entries.drop_duplicates(subset=['doi', 'authorName', 'authorAffiliation', 'currentStatus'], keep='first')
 
 #metadata assessment
 ##readme presence
@@ -660,6 +753,50 @@ size_by_year.to_csv(f"outputs/{todayDate}_{institutionFilename}_annual-size-summ
 unique_datasets_per_format = df_all_files_concat_deduplicated.groupby('friendlyFormat_manual')['datasetID'].nunique()
 print(unique_datasets_per_format)
 unique_datasets_per_format.to_csv(f"outputs/{todayDate}_{institutionFilename}_unique-format-summary.csv")
+
+#author assessment
+df_all_authors_concat_deduplicated
+##is ROR present
+df_all_authors_concat_deduplicated['missingROR'] = df_all_authors_concat_deduplicated['rorID'].isna() | (df_all_authors_concat_deduplicated['rorID'] == '')
+##is any author ID system present
+df_all_authors_concat_deduplicated['missingAuthorScheme'] = df_all_authors_concat_deduplicated['authorIdentifierScheme'].isna() | (df_all_authors_concat_deduplicated['authorIdentifierScheme'] == '')
+##ORCID present and appropriately formatted
+df_all_authors_concat_deduplicated['properORCID'] = (
+    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
+) & df_all_authors_concat_deduplicated['authorIdentifier'].str.contains('https://orcid.org/', na=False)
+##is ORCID present but malformatted (not hyperlinked)
+df_all_authors_concat_deduplicated['malformedORCID_noHyphens'] = (
+    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
+) & ~df_all_authors_concat_deduplicated['authorIdentifier'].str.contains('-', na=False)
+##is ORCID present but malformatted (no dashes)
+df_all_authors_concat_deduplicated['malformedORCID_noURL'] = (
+    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
+) & ~df_all_authors_concat_deduplicated['authorIdentifier'].str.contains('https://orcid.org/', na=False)
+##is ORCID present but malformatted (single field)
+df_all_authors_concat_deduplicated['malformedORCID_singleField'] = (
+    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
+) & df_all_authors_concat_deduplicated['authorIdentifierExpanded'].isna()
+
+df_all_authors_concat_deduplicated['malformedORCID_any'] = (
+    df_all_authors_concat_deduplicated['malformedORCID_noHyphens'] |
+    df_all_authors_concat_deduplicated['malformedORCID_noURL'] |
+    df_all_authors_concat_deduplicated['malformedORCID_singleField']
+)
+##malformed author name (order)
+df_all_authors_concat_deduplicated['malformedOrder'] = (
+    df_all_authors_concat_deduplicated['authorName'].str.contains(' ', na=False) & 
+    ~df_all_authors_concat_deduplicated['authorName'].str.contains(',', na=False)
+)
+##malformed initial (standalone initial without period)
+df_all_authors_concat_deduplicated['malformedInitial'] = df_all_authors_concat_deduplicated['authorName'].str.contains(r'\b[A-Z]\b(?!\.)', regex=True)
+
+df_all_authors_concat_deduplicated['malformedName'] = (
+    df_all_authors_concat_deduplicated['malformedOrder'] |
+    df_all_authors_concat_deduplicated['malformedInitial'] 
+)
+
+df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.sort_values(by='authorName')
+df_all_authors_concat_deduplicated.to_csv(f'outputs/{todayDate}_{institutionFilename}_all-authors.csv', index=False)
 
 print("Done.")
 print(f"Time to run: {datetime.now() - startTime}")

@@ -1,12 +1,12 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 0.0.2. (initial commit)
-* *Released*: 2025/04/01
+* *Version*: 0.0.3.
+* *Released*: 2025/07/07
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-* *README last updated*: 2025/03/31
+* *README last updated*: 2025/07/07
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -25,6 +25,7 @@ This repository includes a series of scripts that are designed for a variety of 
 ## Overview
 1. **dataverse-dspace-match.py**: This script involves a relatively simple process of retrieving all deposits in TDR and a specified DSpace repository through the DataCite API using the common DOI prefix and a basic publisher filter. The script then creates an entry (row) for each author, de-duplicates it, and looks for exact matches. This script does not involve either the Dataverse or DSpace APIs; there are a few reasons for this, including relatively poor documentation for, and anticipated updates to, [DSpace's REST API](https://wiki.lyrasis.org/display/DSDOC5x/REST+API); the benefit of using a single API and metadata schema for two sources of information; and my own relative familiarity with the DataCite API (I have never had any reason to explore the DSpace API). This process thus relies on a DSpace repository minting DOIs for deposits, rather than just handles; this script will not work otherwise.
 2. **dataverse-file-assessment.py**: This script makes exclusive use of the Dataverse API and therefore requires an API token to run. It involves a multi-step process that repeatedly hits the API, which means it will likely be heavily impacted by future rate limiting. The script first queries the [Search API](https://guides.dataverse.org/en/latest/api/search.html) for all records in a given collection (institution-specific) or will look across all TDR institutions (in theory, you could pick some but not all, but I can't think of a use case for that off the top of my head). Regardless of the scope, a non-superuser will pick up deposits in *Draft* and *Deaccessioned* status for their institution but not those of others - a superuser should get everything. If a dataset was previously published and is in *DRAFT* status, it will be double-listed, once for each status. The dataframe is de-duplicated, removing the draft version for datasets that were previously published (so any retained object with *DRAFT* has never been published), and then each DOI is fed into the [Native API](https://guides.dataverse.org/en/latest/api/native-api.html). This will retrieve metadata not available through the Search API for the most recent version (either *Published* or *Draft* and regardless of previous publication or lack thereof), such as total deposit size and information on the individual files (e.g., storageIdentifier, individual size, mimeType, date of creation). *Deaccessioned* datasets are removed at this point, as they do not record any storage size (they probably do for a superuser since the files are retained in the system, so their storage allocation is not zero). The retrieval of file-level information allows for reliable calculation of total storage size based on when the file was first ingested, since it starts imposing a cost at that point, and the counting of file formats. File format counting is NOT the total number of files in the system with a given extension because some disciplines can generate thousands of nearly identical files for one study; instead, this script counts how many unique datasets each file format occurs in, which is considered more reliable for understanding the prevalence of different formats.
+3. **tdr-affiliation-ror-matching.csv**: This is a file developed for several other workflows that may be useful in the dataset/file assessment workflow as well. It provides a mapping of every unique listed affiliation in the UT Austin dataverse (as of 2025/07/07) to a ROR identifier (if one exists).
 
 ## Outputs
 ### dataverse-dspace-match
@@ -37,8 +38,13 @@ The prototype script for the COAR Notify project will return four outputs:
 The code to export the full record of all deposits in each repository (***repository*-deposits-all.csv**) is included but is coded out at present. 
 
 ### dataverse-file-assessment
-This script will return three outputs:
-* ***date*_*institution*_all-deposits-deduplicated_expanded-metadata.csv**: a dataframe with an entry for each file retrieved from the search process with file- and dataset-level metadata.
+This script will return eight outputs:
+* ***date*_*institution*_all-deposits.csv**: a dataframe with an entry for every dataset (including deaccessioned and never-published drafts) retrieved from the search process. For datasets that were previously published and are now in draft, multiple entries are recorded (default Search API behaviour). 
+* ***date*_*institution*_all-deposits-deduplicated.csv**: the same but with only one record for each DOI, retaining the 'PUBLISHED' version over the 'DRAFT' version for datasets with multiple entries.
+* ***date*_*institution*_dual-status-datasets.csv**: a dataframe with entries for all datasets that return multiple entries from the Search API (previously published, now in 'DRAFT')
+* ***date*_*institution*_all-deposits-deduplicated_expanded-metadata.csv**: a dataframe with an entry for each file retrieved from the search process with file- and dataset-level metadata. Note that is is only through the Search and Native APIs.
+* ***date*_*institution*_all-files-deduplicated.csv**: a dataframe with an entry for each file retrieved from the search process. Note that this is through the Search, Native, and Version APIs.
+* ***date*_*institution*_all-authors.csv**: a dataframe with an entry for each author associated with at least one dataset. Authors are only deduplicated on a combination of DOI, name, affiliation, and current version state of the dataset, so many authors will have multiple entries.
 * ***date*_*institution*_unique-format-summary.csv**: a dataframe with a summary of the number of unique datasets in which each file format occurs.
 * ***date*_*institution*_annual-size-summary.csv**: a dataframe with a summary of the total file size of files created in a given year. Which date is used (e.g., 'publication date' versus 'creation date' could be modified).
 
