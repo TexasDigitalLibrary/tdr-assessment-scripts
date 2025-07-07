@@ -3,7 +3,9 @@ config.json
 test/
 inputs/
 outputs/
+plots/
 script-archive/
+TDR-regression-modeling.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
