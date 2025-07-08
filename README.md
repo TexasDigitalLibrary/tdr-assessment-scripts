@@ -1,12 +1,12 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 0.0.3.
-* *Released*: 2025/07/07
+* *Version*: 0.0.4.
+* *Released*: 2025/07/08
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-* *README last updated*: 2025/07/07
+* *README last updated*: 2025/07/08
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -44,9 +44,12 @@ This script will return eight outputs:
 * ***date*_*institution*_dual-status-datasets.csv**: a dataframe with entries for all datasets that return multiple entries from the Search API (previously published, now in 'DRAFT')
 * ***date*_*institution*_all-deposits-deduplicated_expanded-metadata.csv**: a dataframe with an entry for each file retrieved from the search process with file- and dataset-level metadata. Note that is is only through the Search and Native APIs.
 * ***date*_*institution*_all-files-deduplicated.csv**: a dataframe with an entry for each file retrieved from the search process. Note that this is through the Search, Native, and Version APIs.
+* ***date*_*institution*_all-datasets-combined.csv**: a dataframe with an entry for each dataset after re-aggregating all files and their metadata.
 * ***date*_*institution*_all-authors.csv**: a dataframe with an entry for each author associated with at least one dataset. Authors are only deduplicated on a combination of DOI, name, affiliation, and current version state of the dataset, so many authors will have multiple entries.
 * ***date*_*institution*_unique-format-summary.csv**: a dataframe with a summary of the number of unique datasets in which each file format occurs.
 * ***date*_*institution*_annual-size-summary.csv**: a dataframe with a summary of the total file size of files created in a given year. Which date is used (e.g., 'publication date' versus 'creation date' could be modified).
+
+If you enable a toggle to omit unpublished datasets, the final five dataframes listed above will be exported with a "-*PUBLISHED*" suffix appended to them.
 
 ## Re-use
 These scripts can be freely re-used, re-distributed, and modified in line with the associated [GNU GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.en.html). If a re-user is only seeking to replicate a UT-Austin-specific output or to retrieve an equivalent output for a different institution, the script will require very little modification - essentially only the defining of affiliation parameters will be necessary. A superuser could have greater functionality in some instances, but superuser-specific functionality has largely not been developed because I have no way to test it.
