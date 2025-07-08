@@ -1,7 +1,7 @@
 # Custom
 config.json
 test/
-inputs/
+libs/
 outputs/
 plots/
 script-archive/
