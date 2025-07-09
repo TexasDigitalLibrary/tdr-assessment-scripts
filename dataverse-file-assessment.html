@@ -267,10 +267,20 @@ Short hand version of institution name: UT Austin.
 test outputs directory found - no need to recreate</code></pre>
 </div>
 </div>
+</section>
+<section id="utilized-api-endpoints" class="level3">
+<h3 class="anchored" data-anchor-id="utilized-api-endpoints">Utilized API endpoints</h3>
+<p>For maximum coverage, we need to query three different endpoints in the Dataverse API. A comparison of what information is retrieved from these</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="dataverse-apis-information-comparison.png" class="img-fluid figure-img"></p>
+<figcaption>Comparison of information retrieved from Dataverse endpoints</figcaption>
+</figure>
+</div>
 <section id="basic-api-params" class="level4">
 <h4 class="anchored" data-anchor-id="basic-api-params">Basic API params</h4>
 <p>The next step is basic API parameters. This block defines the first API endpoint (the <a href="https://guides.dataverse.org/en/latest/api/search.html">Search API</a>). It then dynamically calls in certain parameters about retrieval size limits from the <em>config.json</em> file, with different values based on whether you are in the Test mode. The API key is also called in. The value ‘<em>k</em>’ is kept in here, instead of the <em>config.json</em> file, because it should always be set as zero (i.e.&nbsp;don’t touch that). It’s used to count pages while the API call is being made. The <em>query</em> value is set as the DOI prefix for all TDR deposits - this is because you cannot do a blank search through the API, so you need a value that you know will return 100% of datasets.</p>
-<div id="fa421717" class="cell">
+<div id="fa421717" class="cell" data-execution_count="11">
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Beginning to define API call parameters."</span>)</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>url_tdr <span class="op">=</span> <span class="st">"https://dataverse.tdl.org/api/search/"</span></span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -474,7 +484,7 @@ Retrieving 200 records per page over 10 pages.</code></pre>
 <section id="functions" class="level3">
 <h3 class="anchored" data-anchor-id="functions">Functions</h3>
 <p>Functions are used when you need to apply the same logic many times throughout a script; it can make the process more concise rather than having to repeat tens to hundreds of lines of code. To be honest, the functions below are pretty technical and are the result of a lot of experimentation with many APIs. You should not touch them unless you know what you are doing, but feel free to ask questions if you want to know what a given line is doing. As a note, even though some functions’ names might suggest they are designed only for querying all institutions (e.g., <em>retrieve_all_data_for_institutions</em>), if you are only running this for a single institution or a subset of institutions, it will still work the same.</p>
-<div id="40018b97" class="cell">
+<div id="40018b97" class="cell" data-execution_count="15">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co">#define functions</span></span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="co">##function to get single page from Dataverse API</span></span>
 <span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> retrieve_page_dataverse(url, params<span class="op">=</span><span class="va">None</span>, headers<span class="op">=</span><span class="va">None</span>):</span>
@@ -986,7 +996,7 @@ Retrieving Page 10 of 150 pages...
 <section id="conditional-concatenation" class="level3">
 <h3 class="anchored" data-anchor-id="conditional-concatenation">Conditional concatenation</h3>
 <p>If you ran the Versions endpoint process, you will need to combine that with the first Native API output and de-duplicate. This block of code uses an ‘if-else’ statement to either combine the two dataframes and then de-duplicate them (both file-level and author-level), or it just does the de-duplication process.</p>
-<div id="b760328c" class="cell">
+<div id="b760328c" class="cell" data-execution_count="28">
 <div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> versionsAPI:</span>
 <span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>    df_all_files_concat <span class="op">=</span> pd.concat([df_version_pruned, df_native_pruned], ignore_index<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>    df_all_files_concat <span class="op">=</span> df_all_files_concat.rename(columns<span class="op">=</span>{<span class="st">'title'</span>: <span class="st">'datasetTitle'</span>})</span>
@@ -1260,7 +1270,7 @@ Name: datasetID, dtype: int64</code></pre>
 <div class="cell-output cell-output-stdout">
 <pre><code>Done.
 
-Time to run: 0:00:54.728505
+Time to run: 0:00:56.841205
 
 **REMINDER: THIS IS A TEST RUN, AND ANY RESULTS ARE NOT COMPLETE!**</code></pre>
 </div>
