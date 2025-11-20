@@ -6,12 +6,13 @@ import requests
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
+# ### Toggles
 #toggle for test environment (incomplete run, faster to complete)
-test = True
+test = False
 #toggle to only look at your/one institution in TDR
 onlyMyInstitution = True 
 #toggle for stage 3 retrieval
-versionsAPI = True
+versionsAPI = False
 #toggle for excluding unpublished
 excludeDrafts = True
 
@@ -24,6 +25,9 @@ todayDate = datetime.now().strftime("%Y%m%d")
 with open('config.json', 'r') as file:
     config = json.load(file)
 
+my_institution = config['INSTITUTION']
+print(my_institution)
+
 ##read in filename version of your institution's name
 my_institution_filename = config['INSTITUTION']['filename']
 ###condition what goes in the filename based on toggle for which institution(s) to ping
@@ -33,6 +37,22 @@ else:
     institutionFilename = "all-institutions"
 ##read in short-hand version of your institution's name
 my_institution_shortName = config["INSTITUTION"]["myInstitution"]
+
+print(f'String to add to filenames: {my_institution_filename}.\n')
+print(f'Short hand version of institution name: {my_institution_shortName}.\n')
+
+apiParams = config['VARIABLES']
+print(apiParams)
+
+words = config['WORDS']
+print(words)
+
+compressed = config['COMPRESSED_FORMATS']
+print(compressed)
+
+#getting script directory
+script_directory = os.getcwd()
+print(f"The script directory is {script_directory}.\n")
 
 #creating directories
 if test:
@@ -328,6 +348,14 @@ def assign_size_bins(df, column='fileSize', new_column='fileSizeBin'):
 
     return df
 
+file_path = f'{script_directory}/tdr-affiliation-ror-matching.csv'
+
+if os.path.exists(file_path):
+    master_ror_matching = pd.read_csv(file_path)
+    print(f"'{file_path}' exists and has been loaded into a DataFrame.")
+else:
+    print(f"'{file_path}' does not exist. DataFrame not loaded.")
+
 print("Starting TDR retrieval.\n")
 all_data = retrieve_all_data_for_institutions(url_tdr, params_list, headers_tdr)
 
@@ -343,19 +371,22 @@ for item in all_data:
     majorV = item.get('majorVersion', 0)
     minorV = item.get('minorVersion', 0)
     comboV = f"{majorV}.{minorV}"
+    versionID = item.get('versioID', '')
     data_select_tdr.append({
         'institution': institution, 
         'doi': id,
         'type': type,
         'status': status,
-        'title': name,
+        'datasetTitle': name,
         'dataverse': dataverse,
         'majorVersion': majorV,
         'minorVersion': minorV,
-        'totalVersion': comboV
+        'totalVersion': comboV,
+        'versionID': versionID
     })
 
 df_data_select_tdr = pd.DataFrame(data_select_tdr)
+
 #remove dataverses and files
 filtered_tdr = df_data_select_tdr[df_data_select_tdr['type'] == 'dataset']
 #editing DOI field
@@ -382,8 +413,8 @@ nondescriptive_words = set(
     numbers
 )
 
-filtered_tdr['titleReformatted'] = filtered_tdr['title'].str.replace('_', ' ') 
-filtered_tdr['titleReformatted'] = filtered_tdr['title'].str.replace('-', ' ') #gets around text linked by underscores counting as 1 word
+filtered_tdr['titleReformatted'] = filtered_tdr['datasetTitle'].str.replace('_', ' ') 
+filtered_tdr['titleReformatted'] = filtered_tdr['datasetTitle'].str.replace('-', ' ') #gets around text linked by underscores counting as 1 word
 filtered_tdr['titleReformatted'] = filtered_tdr['titleReformatted'].str.lower()
 filtered_tdr[['totalWordCount_title', 'descriptiveWordCount_title']] = filtered_tdr['titleReformatted'].apply(lambda x: pd.Series(count_words(x)))
 
@@ -398,7 +429,7 @@ filtered_tdr_deduplicated.to_csv(f"outputs/{todayDate}_{institutionFilename}_all
 print(f'Total datasets to be analyzed: {len(filtered_tdr_deduplicated)}.\n')
 
 #create df of published datasets with draft version (retains both entries)
-commonColumns = ['doi', 'title']
+commonColumns = ['doi', 'datasetTitle']
 duplicates = filtered_tdr.duplicated(subset=commonColumns, keep=False)
 dualStatusDatasets = filtered_tdr[duplicates]
 dualStatusDatasets.to_csv(f"outputs/{todayDate}_{institutionFilename}_dual-status-datasets.csv")
@@ -423,6 +454,7 @@ for doi in filtered_tdr_deduplicated['doi']:
 data_tdr_native = {
     'datasets': results
 }
+
 print("Beginning dataframe subsetting\n")
 data_select_tdr_native = [] 
 for item in data_tdr_native['datasets']:
@@ -449,12 +481,21 @@ for item in data_tdr_native['datasets']:
             for grant in field.get('value', []):
                 grant_number_agency = grant.get('grantNumberAgency', {}).get('value', '')
                 grantAgencies.append(grant_number_agency)
+        if field['typeName'] == 'subject':
+            subjects = field.get('value', [])
+        if field['typeName'] == 'keyword':
+            keywords = []
+            for keyword_dict in field.get('value', []):
+                keyword_value = keyword_dict.get('keywordValue', {}).get('value', '')
+                if keyword_value:
+                    keywords.append(keyword_value)
+            keywords_str = ';'.join(keywords)
     total_filesize = 0
     unique_content_types = set()
     fileCount = len(files)
-    for file_info in files:
-        file_data = file_info['dataFile']
-        unique_content_types.add(file_data['contentType'])
+    for file in files:
+        fileInfo = file['dataFile']
+        unique_content_types.add(fileInfo['contentType'])
         file_entry = {
             'datasetID': datasetID,
             'doi': doi,
@@ -463,16 +504,18 @@ for item in data_tdr_native['datasets']:
             'reuseRequirements': usage,
             #'fileCount': fileCount,
             #'unique_content_types': list(unique_content_types),
-            'fileID': file_data.get('id', ''),
-            'public': file_data.get('restricted', ''),
-            'filename': file_data.get('filename', ''),
-            'mimeType': file_data.get('contentType', ''),
-            'friendlyType': file_data.get('friendlyType', ''),
-            'tabular': file_data.get('tabularData', ''),
-            'fileSize': file_data.get('filesize', 0),
-            'storageIdentifier': file_data.get('storageIdentifier', ''),
-            'creationDate': file_data.get('creationDate', ''),
-            'publicationDate': file_data.get('publicationDate', '')
+            'fileID': fileInfo.get('id', ''),
+            'public': fileInfo.get('restricted', ''),
+            'filename': fileInfo.get('filename', ''),
+            'mimeType': fileInfo.get('contentType', ''),
+            'friendlyType': fileInfo.get('friendlyType', ''),
+            'tabular': fileInfo.get('tabularData', ''),
+            'fileSize': fileInfo.get('filesize', 0),
+            'storageIdentifier': fileInfo.get('storageIdentifier', ''),
+            'creationDate': fileInfo.get('creationDate', ''),
+            'publicationDate': fileInfo.get('publicationDate', ''),
+            'restricted': file.get('restricted', ''),
+            'license': licenseName
         }
         data_select_tdr_native.append(file_entry)
 
@@ -520,12 +563,12 @@ df_select_tdr_native['fileCreationYear'] = df_select_tdr_native['creationDate'].
 df_select_tdr_native = assign_size_bins(df_select_tdr_native, column='fileSize', new_column='fileSizeBin')
 df_select_concatenated = pd.merge(filtered_tdr_deduplicated, df_select_tdr_native, on='doi', how="left")
 df_select_concatenated_exist = df_select_concatenated.dropna(subset=['datasetID']).copy() #removes deaccessioned
+
 df_select_concatenated_exist['datasetID'] = df_select_concatenated_exist['datasetID'].astype(int)
 df_select_concatenated_exist.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-deposits-deduplicated_expanded-metadata.csv")
 
 #subset to datasets that are less than version 2.0 (no major update, no file additions)
 df_select_concatenated_exist_majorVersion = df_select_concatenated_exist[df_select_concatenated_exist['majorVersion'] > 1]
-
 
 #need to use Version endpoint to get info on published version of published datasets that are currently in DRAFT status and all published versions of a dataset with multiple PUBLISHED versions. This endpoint is public and does not return any DRAFTs.
 #remove datasets that have never been published (will not return any info for this endpoint)
@@ -564,6 +607,10 @@ if versionsAPI:
             status2 = latest.get('latestVersionPublishingState', '')
             comboV = f"{majorV}.{minorV}"
             status = item.get('versionState', '')
+            license = item.get('license', {})
+            licenseName = license.get('name', None)
+            terms = item.get('termsOfUse', None)
+            usage = licenseName if licenseName is not None else terms
             for file in item.get('files', []):
                 fileInfo = file['dataFile']
                 data_select_tdr_versions.append({
@@ -584,7 +631,9 @@ if versionsAPI:
                     'storageIdentifier': fileInfo.get('storageIdentifier', ''),
                     #'md5': fileInfo.get('md5', ''),
                     'creationDate': fileInfo.get('creationDate', ''),
-                    'publicationDate': fileInfo.get('publicationDate', '')
+                    'publicationDate': fileInfo.get('publicationDate', ''),
+                    'restricted': file.get('restricted', ''),
+                    'license': licenseName
                 })
     #getting dataframe with entries for individual authors
     author_entries_versions = []
@@ -636,12 +685,12 @@ if versionsAPI:
     df_select_versions_concatenated_released = pd.merge(df_select_tdr_versions_deduplicated, filtered_tdr_deduplicated, on='doi', how="left")
 
     #pruning and renaming columns in the two dataframes that collectively (should) have all of the files (from the Native and the Version endpoints)
-    df_version_pruned = df_select_versions_concatenated_released[["versionID", "datasetID", "totalVersion_x", "filename", "fileID", "mimeType", "friendlyType", "fileSize", "storageIdentifier", "creationDate", "publicationDate", "institution", "doi", "fileSizeBin", "title", "dataverse"]]
-    df_version_pruned = df_version_pruned.rename(columns={'totalVersion_x': 'totalVersion', 'filename_x': 'filename', 'fileSize_x': 'fileSize', 'storageIdentifier_x': 'storageIdentifier', 'creationDate_x': 'creationDate', 'publicationDate_x':'publicationDate'})
+    df_version_pruned = df_select_versions_concatenated_released[["versionID_x", "datasetID", "totalVersion_x", "filename", "fileID", "mimeType", "friendlyType", "fileSize", "storageIdentifier", "creationDate", "publicationDate", "institution", "doi", "fileSizeBin", "datasetTitle", "dataverse", "restricted", "license"]]
+    df_version_pruned = df_version_pruned.rename(columns={'totalVersion_x': 'totalVersion', 'filename_x': 'filename', 'fileSize_x': 'fileSize', 'storageIdentifier_x': 'storageIdentifier', 'creationDate_x': 'creationDate', 'publicationDate_x':'publicationDate', 'versionID_x': 'versionID'})
     df_version_pruned['creationYear'] = pd.to_datetime(df_version_pruned['creationDate'], format="%Y-%m-%d").dt.year
     df_version_pruned['publicationYear'] = pd.to_datetime(df_version_pruned['publicationDate'], format="%Y-%m-%d").dt.year
 
-df_native_pruned = df_select_concatenated_exist[["datasetID", "totalVersion", "filename", "fileID", "mimeType", "friendlyType", "fileSize", "storageIdentifier", "creationDate", "publicationDate", "institution", "doi", "fileSizeBin", "title", "dataverse"]]
+df_native_pruned = df_select_concatenated_exist[["datasetID", "datasetTitle", "versionID", "currentStatus", "totalVersion", "filename", "fileID", "mimeType", "friendlyType", "fileSize", "storageIdentifier", "creationDate", "publicationDate", "institution", "doi", "fileSizeBin", "dataverse", "restricted", "license"]]
 df_native_pruned = df_native_pruned.copy()
 df_native_pruned['creationYear'] = pd.to_datetime(df_native_pruned['creationDate'], format="%Y-%m-%dT%H:%M:%SZ").dt.year
 df_native_pruned['publicationYear'] = pd.to_datetime(df_native_pruned['publicationDate'], format="%Y-%m-%d").dt.year
@@ -653,6 +702,7 @@ if versionsAPI:
     #deduplicate
     ##create fake versionID for drafts to ensure proper sorting and deduplicating
     df_all_files_concat['versionID'] = df_all_files_concat['versionID'].fillna(9999999)
+    df_all_files_concat['versionID'] = pd.to_numeric(df_all_files_concat['versionID'], errors='coerce')
     df_all_files_concat = df_all_files_concat.sort_values(by='versionID')
     df_all_files_concat_deduplicated = df_all_files_concat.drop_duplicates(subset=['storageIdentifier'], keep='first')
     df_all_files_concat_deduplicated = df_all_files_concat_deduplicated.copy()
@@ -710,7 +760,7 @@ for col in df_tdr_all_files_combined.columns:
         df_tdr_all_files_combined[col] = df_tdr_all_files_combined[col].apply(lambda x: '; '.join(map(str, x)))
 
 tdr_all_datasets_deduplicated = df_tdr_all_files_combined.drop_duplicates(subset='datasetID', keep='first')
-tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated[["datasetID", "versionID", "totalVersion", "mimeType", "friendlyType", "fileSize", "creationDate", "publicationDate", "institution", "doi", "datasetTitle", "dataverse", "creationYear", "publicationYear", "isREADME", "isCodebook", "isDataDict", "friendlyFormat_manual", "isSoftware", "isCompressed", "isMSOffice"]]
+tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated[["datasetID", "versionID", "totalVersion", "mimeType", "friendlyType", "fileSize", "creationDate", "publicationDate", "institution", "doi", "datasetTitle", "dataverse", "creationYear", "publicationYear", "restricted", "license", "isREADME", "isCodebook", "isDataDict", "friendlyFormat_manual", "isSoftware", "isCompressed", "isMSOffice"]]
 
 #handles entries where aggregation returned a mixed 'False;True' value
 def normalize_boolean_column(col):
@@ -737,6 +787,7 @@ tdr_all_datasets_deduplicated_pruned = assign_size_bins(tdr_all_datasets_dedupli
 
 tdr_all_datasets_deduplicated_pruned.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-datasets-combined.csv")
 
+#size summary
 size_by_year = df_all_files_concat_deduplicated.groupby('creationYear')['fileSize'].sum().reset_index()
 size_by_year['fileGB'] = size_by_year['fileSize'] / 1000000000
 print('Annual size summary')
@@ -795,6 +846,26 @@ df_all_authors_concat_deduplicated.loc[:, 'malformedName'] = (
 df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.sort_values(by='authorName')
 df_all_authors_concat_deduplicated.to_csv(f'outputs/{todayDate}_{institutionFilename}_all-authors.csv', index=False)
 
+df_all_affiliations_dedup = df_all_authors_concat_deduplicated.drop_duplicates(subset=['authorAffiliation'], keep='first')
+df_all_affiliations_dedup = df_all_affiliations_dedup.rename(columns={'authorAffiliation': 'affiliation'})
+
+
+if master_ror_matching is None: #create master file if it doesn't exist yet
+    print("No existing master file found, creating new one.\n")
+    print(f"Total unique affiliations: {len(df_all_affiliations_dedup) - 1}\n")
+    df_all_affiliations_dedup.to_csv(f'{script_directory}/tdr-affiliation-ror-matching.csv')
+else: #concat master file with new list of unique affiliations, drop duplicates (keep first will retain existing matches)
+    print("Found existing master file, adding and deduplicating.\n")
+    df_all_affiliations_dedup_expanded = pd.concat([master_ror_matching, df_all_affiliations_dedup])
+    print(f"Total affiliations: {len(df_all_affiliations_dedup_expanded)}\n")
+    df_all_affiliations_dedup_expanded_pruned = df_all_affiliations_dedup_expanded.drop_duplicates(subset=['affiliation'], keep='first')
+    print(f"Total unique affiliations: {len(df_all_affiliations_dedup_expanded_pruned) - 1}\n")
+    df_all_affiliations_dedup_expanded_pruned = df_all_affiliations_dedup_expanded_pruned[['affiliation', 'ror', 'flag-generic']]
+    ##remove blanks
+    df_all_affiliations_dedup_expanded_pruned = df_all_affiliations_dedup_expanded_pruned.dropna(subset=['affiliation'])
+    df_all_affiliations_dedup_expanded_pruned.to_csv(f'{script_directory}/tdr-affiliation-ror-matching-TEMP.csv')
+    print(f"Number of new affiliations to check: {len(df_all_affiliations_dedup_expanded_pruned) - len(master_ror_matching)}")
+
 if excludeDrafts:
     #authors
     df_all_authors_concat_deduplicated_published = df_all_authors_concat_deduplicated[df_all_authors_concat_deduplicated['currentStatus'] != 'DRAFT']
@@ -818,7 +889,323 @@ if excludeDrafts:
     unique_datasets_per_format_PUBLISHED = df_all_files_concat_deduplicated_published.groupby('friendlyFormat_manual')['datasetID'].nunique()
     unique_datasets_per_format_PUBLISHED.to_csv(f"outputs/{todayDate}_{institutionFilename}_unique-format-summary-PUBLISHED.csv")
 
+#dataverse-level summary
+query = '*'
+params_tdr_ut_austin = {
+    'q': query,
+    'subtree': 'utexas',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_baylor = {
+    'q': query,
+    'subtree': 'baylor',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_smu = {
+    'q': query,
+    'subtree': 'smu',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_tamu = {
+    'q': query,
+    'subtree': 'tamu',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_txst = {
+    'q': query,
+    'subtree': 'txst',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_ttu = {
+    'q': query,
+    'subtree': 'ttu',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_houston = {
+    'q': query,
+    'subtree': 'uh',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_hscfw = {
+    'q': query,
+    'subtree': 'unthsc',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_tamug = {
+    'q': query,
+    'subtree': 'tamug',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+params_tdr_tamui = {
+    'q': query,
+    'subtree': 'tamiu',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+params_tdr_utsah = {
+    'q': query,
+    'subtree': 'uthscsa',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+params_tdr_utswm = {
+    'q': query,
+    'subtree': 'utswmed',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_uta = {
+    'q': query,
+    'subtree': 'uta',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+params_tdr_twu = {
+    'q': query,
+    'subtree': 'twu',
+    'type': 'dataverse',
+    'start': page_start_dataverse,
+    'page': page_increment,
+    'per_page': page_limit_dataverse
+}
+
+all_params = {
+        "UT Austin": params_tdr_ut_austin,
+        "Baylor": params_tdr_baylor,
+        "SMU": params_tdr_smu,
+        "TAMU": params_tdr_tamu,
+        "Texas State": params_tdr_txst,
+        "Texas Tech": params_tdr_ttu,
+        "Houston": params_tdr_houston,
+        "HSC Fort Worth": params_tdr_hscfw,
+        "TAMU Galveston": params_tdr_tamug,
+        "TAMU International": params_tdr_tamui,
+        "UT San Antonio Health": params_tdr_utsah,
+        "UT Southwestern Medical": params_tdr_utswm,
+        "UT Arlington": params_tdr_uta,
+        "Texas Women's University": params_tdr_twu
+    }
+
+tamu_combined_params = {
+        "TAMU": params_tdr_tamu,
+        "TAMU Galveston": params_tdr_tamug,
+        "TAMU International": params_tdr_tamui
+}
+
+#substitute for your institution
+if onlyMyInstitution:
+    if my_institution_shortName == "TAMU":
+        params_list = tamu_combined_params
+    else:
+        params_list = {
+            my_institution_shortName: all_params[my_institution_shortName]
+        }
+else:
+    params_list = all_params
+
+print("Beginning to define API call parameters.")
+
+##(re)set API-specific params
+page_limit_dataverse = config['VARIABLES']['PAGE_LIMITS']['tdr_test'] if test else config['VARIABLES']['PAGE_LIMITS']['tdr_prod']
+page_size = config['VARIABLES']['PAGE_SIZES']['dataverse'] if test else config['VARIABLES']['PAGE_SIZES']['dataverse']
+print(f"Retrieving {page_size} records per page over {page_limit_dataverse} pages.")
+
+###for TDR, affiliation is not reliable for returning all relevant results; the DOI prefix is used as the most generic common denominator for datasets
+query = '10.18738/T8/'
+page_start_dataverse = config['VARIABLES']['PAGE_STARTS']['dataverse']
+page_increment = config['VARIABLES']['PAGE_INCREMENTS']['dataverse']
+k = 0
+
+print("Starting TDR retrieval.\n")
+all_dataverses = retrieve_all_data_for_institutions(url_tdr, params_list, headers_tdr)
+
+print("Starting TDR filtering.\n")
+dataverses_select_tdr = []
+for item in all_dataverses:
+    name = item.get('name', '')
+    type = item.get('type', '')
+    url = item.get('url','')
+    identifier = item.get('identifier', '')
+    description = item.get('description', '')
+    published = item.get('published_at', '')
+    status = item.get('publicationStatuses', '')
+    affiliation = item.get('affiliation', '')
+    parentDataverse = item.get('parentDataverseName', '')
+    parentDataverseID = item.get('parentDataverseIdentifier', '')
+    dataverses_select_tdr.append({
+        'dataverseName': name, 
+        'url': url,
+        'identifier': identifier,
+        'type': type,
+        'status': status,
+        'description': description,
+        'published': published,
+        'affiliation': affiliation,
+        'parentDataverse': parentDataverse,
+        'parentDataverseID': parentDataverseID
+    })
+
+df_dataverses_select_tdr = pd.DataFrame(dataverses_select_tdr)
+
+print("Starting Native API call")
+url_tdr_native = "https://dataverse.tdl.org/api/dataverses/"
+
+results = []
+for identifier in df_dataverses_select_tdr['identifier']:
+    try:
+        response = requests.get(f'{url_tdr_native}/{identifier}', headers=headers_tdr, timeout=5)
+        if response.status_code == 200:
+            print(f"Retrieving {identifier}\n")
+            results.append(response.json())
+        else:
+            print(f"Error retrieving {doi}: {response.status_code}, {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Timeout error on dataverse {identifier}: {e}")
+
+data_tdr_native = {
+    'dataverses': results
+}
+
+print("Beginning dataframe subsetting\n")
+data_select_tdr_native = [] 
+for item in data_tdr_native['dataverses']:
+    data = item.get('data')
+    id = data.get('id', '')
+    contacts = data.get('dataverseContacts', [])
+    contactEmail = [contact.get('contactEmail', None) for contact in contacts if isinstance(contact, dict)]
+    contactsCount = len(contactEmail)
+    permission = data.get('permissionRoot', '')
+    dataverseType = data.get('dataverseType', '')
+    metadataBlock = data.get('isMetadataBlockRoot', '')
+    facetRoot = data.get('isFacetRoot', '')
+    owner = data.get('ownerId', '')
+    created = data.get('creationDate', '')
+    identifier = data.get('alias', '')
+    released = data.get('isReleased', '')
+    data_select_tdr_native.append({
+        'id': id,
+        'contactEmail': contactEmail,
+        'contactCount': contactsCount, 
+        'owner': owner,
+        'dataverseType': dataverseType,
+        'permission': permission,
+        'metadataBlock': metadataBlock,
+        'facetRoot': facetRoot,
+        'created': created,
+        'identifier': identifier,
+        'released': released
+    })
+
+df_select_tdr_native = pd.json_normalize(data_select_tdr_native)
+df_select_tdr_native.to_csv(f"outputs/{todayDate}-test-debug.csv")
+
+#merge dfs
+df_select_concatenated = pd.merge(df_dataverses_select_tdr, df_select_tdr_native, on='identifier', how="left")
+
+url_contents = "https://dataverse.tdl.org/api/dataverses/{}/contents"
+url_storagesize = "https://dataverse.tdl.org/api/dataverses/{}/storagesize"
+
+contents_results = []
+storagesize_results = []
+
+for identifier in df_dataverses_select_tdr['identifier']:
+    # Fetch contents
+    try:
+        response = requests.get(url_contents.format(identifier), headers=headers_tdr, timeout=5)
+        if response.status_code == 200:
+            print(f"Retrieving contents for {identifier}")
+            contents_results.append(response.json())
+        else:
+            print(f"Error retrieving contents for {identifier}: {response.status_code}, {response.text}")
+            contents_results.append(None)
+    except requests.exceptions.RequestException as e:
+        print(f"Timeout error on contents {identifier}: {e}")
+        contents_results.append(None)
+    
+    # # Fetch storagesize
+    # try:
+    #     response = requests.get(url_storagesize.format(identifier), headers=headers_tdr, timeout=5)
+    #     if response.status_code == 200:
+    #         storagesize_results.append(response.json())
+    #     else:
+    #         print(f"Error retrieving storagesize for {identifier}: {response.status_code}, {response.text}")
+    #         storagesize_results.append(None)
+    # except requests.exceptions.RequestException as e:
+    #     print(f"Timeout error on storagesize {identifier}: {e}")
+    #     storagesize_results.append(None)
+
+# df_select_concatenated['contents'] = contents_results
+# df_select_concatenated['storagesize'] = storagesize_results
+
+#reporting number of datasets and dataverses
+# Count dataverses
+num_dataverses = [
+    sum(1 for item in (contents.get('data', []) if isinstance(contents, dict) else []) 
+        if item.get('type') == 'dataverse')
+    for contents in contents_results
+]
+
+# Count datasets
+num_datasets = [
+    sum(1 for item in (contents.get('data', []) if isinstance(contents, dict) else []) 
+        if item.get('type') == 'dataset')
+    for contents in contents_results
+]
+
+# Add to DataFrame
+df_select_concatenated['num_dataverses'] = num_dataverses
+df_select_concatenated['num_datasets'] = num_datasets
+
+df_select_concatenated.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-dataverses.csv")
+
 print("Done.\n")
 print(f"Time to run: {datetime.now() - startTime}\n")
 if test:
     print("**REMINDER: THIS IS A TEST RUN, AND ANY RESULTS ARE NOT COMPLETE!**")
+
+
