@@ -1,12 +1,12 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 0.0.6.
-* *Released*: 2025/11/20
+* *Version*: 0.0.7.
+* *Released*: 2025/12/05
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-* *README last updated*: 2025/11/20
+* *README last updated*: 2025/12/05
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -25,10 +25,10 @@ This repository includes a series of scripts that are designed for a variety of 
 ## Overview
 1. **dataverse-dspace-match.py**: This script involves a relatively simple process of retrieving all deposits in TDR and a specified DSpace repository through the DataCite API using the common DOI prefix and a basic publisher filter. The script then creates an entry (row) for each author, de-duplicates it, and looks for exact matches. This script does not involve either the Dataverse or DSpace APIs; there are a few reasons for this, including relatively poor documentation for, and anticipated updates to, [DSpace's REST API](https://wiki.lyrasis.org/display/DSDOC5x/REST+API); the benefit of using a single API and metadata schema for two sources of information; and my own relative familiarity with the DataCite API (I have never had any reason to explore the DSpace API). This process thus relies on a DSpace repository minting DOIs for deposits, rather than just handles; this script will not work otherwise.
 2. **dataverse-file-assessment.py**: This script makes exclusive use of the Dataverse API and therefore requires an API token to run. It involves a multi-step process that repeatedly hits the API, which means it will likely be heavily impacted by future rate limiting. The script first queries the [Search API](https://guides.dataverse.org/en/latest/api/search.html) for all datasets in a given collection (institution-specific) or will look across all TDR institutions (in theory, you could pick some but not all, but I can't think of a use case for that off the top of my head). Regardless of the scope, a non-superuser will pick up deposits in *Draft* and *Deaccessioned* status for their institution but not those of others - a superuser should get everything. If a dataset was previously published and is in *DRAFT* status, it will be double-listed, once for each status. The dataframe is de-duplicated, removing the draft version for datasets that were previously published (so any retained object with *DRAFT* has never been published), and then each DOI is fed into the [Native API](https://guides.dataverse.org/en/latest/api/native-api.html). This will retrieve metadata not available through the Search API for the most recent version (either *Published* or *Draft* and regardless of previous publication or lack thereof), such as total deposit size and information on the individual files (e.g., storageIdentifier, individual size, mimeType, date of creation). *Deaccessioned* datasets are removed at this point, as they do not record any storage size (they probably do for a superuser since the files are retained in the system, so their storage allocation is not zero). The retrieval of file-level information allows for reliable calculation of total storage size based on when the file was first ingested, since it starts imposing a cost at that point, and the counting of file formats. File format counting is NOT the total number of files in the system with a given extension because some disciplines can generate thousands of nearly identical files for one study; instead, this script counts how many unique datasets each file format occurs in, which is considered more reliable for understanding the prevalence of different formats. Finally, the script repeats the two-step process of combining the Search and Native APIs in order to retrieve information on dataverses. The basic functionality for this is finished, but additional work is needed to better convey nested relationships and to obtain dataverse storage size (the endpoint is apparently restricted to super-users).
-3. **dataverse-file-assessment.ipynb**: Jupyter notebook version of the above script.
+3. **dataverse-file-assessment.ipynb**: Jupyter notebook version of the above script. **!!!NOTE: THE FILE IS CURRENTLY OUT OF SYNC WITH THE .PY FILE AND SHOULD NOT BE USED.!!!** It will be updated in short order.
 4. **dataverse-file-assessment.html**: HTML output of a test run of the above script. *intended only for training purposes; data are incomplete*. If the formatting doesn't look right, try the PDF output.
 5. **dataverse-file-assessment.pdf**: PDF output of a test run of the above script. *intended only for training purposes; data are incomplete*
-6. **tdr-affiliation-ror-matching.csv**: This is a file developed for several other workflows that may be useful in the dataset/file assessment workflow as well. It provides a mapping of every unique listed affiliation in the UT Austin dataverse (as of 2025/07/07) to a ROR identifier (if one exists).
+6. **tdr-affiliation-ror-matching.csv**: This is a file developed for automated re-curation workflows that may be integrated into this dataset/file assessment workflow as well. It provides a mapping of every unique listed affiliation in the UT Austin dataverse (as of 2025/12/04) to a ROR identifier (if one exists). 
 
 ## Outputs
 ### dataverse-dspace-match
@@ -41,7 +41,7 @@ The prototype script for the COAR Notify project will return four outputs:
 The code to export the full record of all deposits in each repository (***repository*-deposits-all.csv**) is included but is coded out at present. 
 
 ### dataverse-file-assessment
-This script will return nine outputs:
+This script will return ten outputs:
 * ***date*_*institution*_all-dataverses.csv**: a dataframe with entries for all dataverses.
 * ***date*_*institution*_all-deposits.csv**: a dataframe with an entry for every dataset (including deaccessioned and never-published drafts) retrieved from the search process. For datasets that were previously published and are now in draft, multiple entries are recorded (default Search API behaviour). 
 * ***date*_*institution*_all-deposits-deduplicated.csv**: the same but with only one record for each DOI, retaining the 'PUBLISHED' version over the 'DRAFT' version for datasets with multiple entries.
@@ -49,11 +49,12 @@ This script will return nine outputs:
 * ***date*_*institution*_all-deposits-deduplicated_expanded-metadata.csv**: a dataframe with an entry for each file retrieved from the search process with file- and dataset-level metadata. Note that is is only through the Search and Native APIs.
 * ***date*_*institution*_all-files-deduplicated.csv**: a dataframe with an entry for each file retrieved from the search process. Note that this is through the Search, Native, and Version APIs.
 * ***date*_*institution*_all-datasets-combined.csv**: a dataframe with an entry for each dataset after re-aggregating all files and their metadata.
+* ***date*_*institution*_all-datasets-combined-with-dataverses.csv**: a dataframe with an entry for each dataset after re-aggregating all files and their metadata, joined with the _all-dataverses.csv dataframe. Unnested datasets (i.e. those at the highest level within an institution's dataverse) are listed with standardized unique entries in all dataverse-level fields (e.g., '0' for all numerical ID fields).
 * ***date*_*institution*_all-authors.csv**: a dataframe with an entry for each author associated with at least one dataset. Authors are only deduplicated on a combination of DOI, name, affiliation, and current version state of the dataset, so many authors will have multiple entries.
 * ***date*_*institution*_unique-format-summary.csv**: a dataframe with a summary of the number of unique datasets in which each file format occurs.
 * ***date*_*institution*_annual-size-summary.csv**: a dataframe with a summary of the total file size of files created in a given year. Which date is used (e.g., 'publication date' versus 'creation date' could be modified).
 
-If you enable a toggle to omit unpublished datasets, the final five dataframes listed above will be exported with a "-*PUBLISHED*" suffix appended to them.
+If you enable a toggle to omit unpublished datasets, five of the dataframes listed above will be exported with a "-*PUBLISHED*" suffix appended to them.
 
 If you already have the file called *tdr-affiliation-ror-matching.csv*, the script will also generate a file called *tdr-affiliation-ror-matching-TEMP.csv*. This file is generated by collecting all unique affiliations in the latest run, combining that with the existing file, and de-duplicating (keeping the previous entries, at least some of which will have been ROR-matched). The idea is to build a continually growing reference file for your local TDR instance, so after editing the *-TEMP* file, you should manually save it as *tdr-affiliation-ror-matching.csv* to overwrite the older version so that the next time the script runs, it will pull that new version. If you don't have the *tdr-affiliation-ror-matching.csv* file to start, the first time you run this script, it will save the unique affiliation dataframe as that filename, and then you can start building the database for ROR matching.
 
@@ -70,7 +71,7 @@ API keys and numerical API query parameters (e.g., records per page, page limit)
 Users will need to create accounts for [Dataverse](https://guides.dataverse.org/en/latest/api/auth.html) in order to obtain personalized API keys, add those to the *config-template.json* file, and rename it as *config.json*. DataCite does not require an API key for standard access. 
 
 ### Test environment
-A Boolean variable called *test*, located immediately after the importing of packages, can be used to create a 'test environment.' If this setting is set to TRUE, the script is set to only retrieve a handful of pages of the full response. 
+A Boolean variable called *test*, located immediately after the importing of packages, can be used to create a 'test environment.' If this setting is set to TRUE, the script is set to only retrieve a handful of pages of the full response. It is useful for testing new functionality and trouble-shooting, provided that any bugs are not edge cases that are unlikely to be retrieved in a restricted sample size.
 
 ### Rate limiting
 In the present configuration, any rate limiting is unlikely to affect the workflows or require modification because of how queries are not targeting specific DOIs (i.e. a few requests return many records). However, potential/planned expansion may necessitate the use of targeted single-object retrieval, and users should be aware that many public APIs impose some kind of rate limiting (e.g., [DataCite](https://support.datacite.org/docs/is-there-a-rate-limit-for-making-requests-against-the-datacite-apis)). 
