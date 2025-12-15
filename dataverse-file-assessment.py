@@ -4,51 +4,46 @@ import math
 import pandas as pd
 import requests
 from datetime import datetime
+from rapidfuzz import process, fuzz
 from urllib.parse import urlparse, parse_qs
 
-# ### Toggles
+#### Toggles
 #toggle for test environment (incomplete run, faster to complete)
 test = False
 #toggle to only look at your/one institution in TDR
-onlyMyInstitution = True 
+only_my_institution = True 
 #toggle for stage 3 retrieval
-versionsAPI = False
+versions_API = False
 #toggle for excluding unpublished
-excludeDrafts = True
+exclude_drafts = True
 
 #setting timestamp at start of script to calculate run time
-startTime = datetime.now() 
+start_time = datetime.now() 
 #creating variable with current date for appending to filenames
-todayDate = datetime.now().strftime("%Y%m%d") 
+today = datetime.now().strftime("%Y%m%d") 
 
 #read in config file
 with open('config.json', 'r') as file:
     config = json.load(file)
 
 my_institution = config['INSTITUTION']
-print(my_institution)
 
 ##read in filename version of your institution's name
 my_institution_filename = config['INSTITUTION']['filename']
 ###condition what goes in the filename based on toggle for which institution(s) to ping
-if onlyMyInstitution:
-    institutionFilename = my_institution_filename
+if only_my_institution:
+    institution_filename = my_institution_filename
 else:
-    institutionFilename = "all-institutions"
+    institution_filename = "all-institutions"
 ##read in short-hand version of your institution's name
 my_institution_shortName = config["INSTITUTION"]["myInstitution"]
 
 print(f'String to add to filenames: {my_institution_filename}.\n')
 print(f'Short hand version of institution name: {my_institution_shortName}.\n')
 
-apiParams = config['VARIABLES']
-print(apiParams)
-
 words = config['WORDS']
-print(words)
 
 compressed = config['COMPRESSED_FORMATS']
-print(compressed)
 
 #getting script directory
 script_directory = os.getcwd()
@@ -241,7 +236,7 @@ tamu_combined_params = {
 }
 
 #substitute for your institution
-if onlyMyInstitution:
+if only_my_institution:
     if my_institution_shortName == "TAMU":
         params_list = tamu_combined_params
     else:
@@ -305,7 +300,6 @@ def retrieve_all_data_for_institutions(url, params_list, headers):
 
     return all_data
 
-
 ##function to count descriptive words
 def count_words(text):
     words = text.split()
@@ -315,15 +309,15 @@ def count_words(text):
 
 ##function to account for when a single word may or may not be descriptive but is certainly uninformative if in a certain combination
 def adjust_descriptive_count(row):
-    if ('supplemental material' in row['titleReformatted'].lower() or
-            'supplementary material' in row['titleReformatted'].lower() or
-            'supplementary materials' in row['titleReformatted'].lower() or
-            'supplemental materials' in row['titleReformatted'].lower()):
-        return max(0, row['descriptiveWordCount_title'] - 1)
-    return row['descriptiveWordCount_title']
+    if ('supplemental material' in row['title_reformatted'].lower() or
+            'supplementary material' in row['title_reformatted'].lower() or
+            'supplementary materials' in row['title_reformatted'].lower() or
+            'supplemental materials' in row['title_reformatted'].lower()):
+        return max(0, row['descriptive_word_count_title'] - 1)
+    return row['descriptive_word_count_title']
 
 ##function to assign size bins (file or dataset level)
-def assign_size_bins(df, column='fileSize', new_column='fileSizeBin'):
+def assign_size_bins(df, column='file_size', new_column='file_size_bin'):
     df=df.copy()
     bins = [
         (0, 1 * 1024, "0-10 kB"),
@@ -348,6 +342,16 @@ def assign_size_bins(df, column='fileSize', new_column='fileSizeBin'):
 
     return df
 
+##function to return only the highest value for the version number
+def extract_max_version(val):
+    if isinstance(val, str):
+        try:
+            versions = [float(v.strip()) for v in val.split(';')]
+            return max(versions)
+        except ValueError:
+            return val  # In case of unexpected format
+    return val
+
 file_path = f'{script_directory}/tdr-affiliation-ror-matching.csv'
 
 if os.path.exists(file_path):
@@ -369,20 +373,20 @@ for item in all_data:
     name = item.get('name', '')
     dataverse = item.get('name_of_dataverse', '')
     majorV = item.get('majorVersion', 0)
-    minorV = item.get('minorVersion', 0)
+    minorV = item.get('minor_version', 0)
     comboV = f"{majorV}.{minorV}"
-    versionID = item.get('versioID', '')
+    version_id = item.get('versionId', '')
     data_select_tdr.append({
         'institution': institution, 
         'doi': id,
         'type': type,
         'status': status,
-        'datasetTitle': name,
+        'dataset_title': name,
         'dataverse': dataverse,
-        'majorVersion': majorV,
-        'minorVersion': minorV,
-        'totalVersion': comboV,
-        'versionID': versionID
+        'major_version': majorV,
+        'minor_version': minorV,
+        'total_version': comboV,
+        'version_id': version_id
     })
 
 df_data_select_tdr = pd.DataFrame(data_select_tdr)
@@ -392,7 +396,7 @@ filtered_tdr = df_data_select_tdr[df_data_select_tdr['type'] == 'dataset']
 #editing DOI field
 filtered_tdr['doi'] = filtered_tdr['doi'].str.replace('doi:', '')
 #add column for versioned
-filtered_tdr['versioned'] = filtered_tdr.apply(lambda row: 'Versioned' if (row['majorVersion'] > 1) or (row['minorVersion'] > 0) else 'Not versioned', axis=1)
+filtered_tdr['versioned'] = filtered_tdr.apply(lambda row: 'Versioned' if (row['major_version'] > 1) or (row['minor_version'] > 0) else 'Not versioned', axis=1)
 
 #metadata assessments
 ##title
@@ -413,26 +417,26 @@ nondescriptive_words = set(
     numbers
 )
 
-filtered_tdr['titleReformatted'] = filtered_tdr['datasetTitle'].str.replace('_', ' ') 
-filtered_tdr['titleReformatted'] = filtered_tdr['datasetTitle'].str.replace('-', ' ') #gets around text linked by underscores counting as 1 word
-filtered_tdr['titleReformatted'] = filtered_tdr['titleReformatted'].str.lower()
-filtered_tdr[['totalWordCount_title', 'descriptiveWordCount_title']] = filtered_tdr['titleReformatted'].apply(lambda x: pd.Series(count_words(x)))
+filtered_tdr['title_reformatted'] = filtered_tdr['dataset_title'].str.replace('_', ' ') 
+filtered_tdr['title_reformatted'] = filtered_tdr['dataset_title'].str.replace('-', ' ') #gets around text linked by underscores counting as 1 word
+filtered_tdr['title_reformatted'] = filtered_tdr['title_reformatted'].str.lower()
+filtered_tdr[['total_word_count_title', 'descriptive_word_count_title']] = filtered_tdr['title_reformatted'].apply(lambda x: pd.Series(count_words(x)))
 
-filtered_tdr['descriptiveWordCount_title'] = filtered_tdr.apply(adjust_descriptive_count, axis=1)
-filtered_tdr['nondescriptiveWordCount_title'] = filtered_tdr['totalWordCount_title'] - filtered_tdr['descriptiveWordCount_title']
+filtered_tdr['descriptive_word_count_title'] = filtered_tdr.apply(adjust_descriptive_count, axis=1)
+filtered_tdr['nondescriptive_word_count_title'] = filtered_tdr['total_word_count_title'] - filtered_tdr['descriptive_word_count_title']
 
 #sort on status, setting 'DRAFT' at bottom to remove this version for published datasets that are in draft state, retain entry of 'PUBLISHED'
 filtered_tdr = filtered_tdr.sort_values(by='status', ascending=False)
-filtered_tdr.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-deposits.csv")
+filtered_tdr.to_csv(f"outputs/{today}_{institution_filename}_all-deposits.csv")
 filtered_tdr_deduplicated = filtered_tdr.drop_duplicates(subset=['doi'], keep="first")
-filtered_tdr_deduplicated.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-deposits-deduplicated.csv")
+filtered_tdr_deduplicated.to_csv(f"outputs/{today}_{institution_filename}_all-deposits-deduplicated.csv")
 print(f'Total datasets to be analyzed: {len(filtered_tdr_deduplicated)}.\n')
 
 #create df of published datasets with draft version (retains both entries)
-commonColumns = ['doi', 'datasetTitle']
+commonColumns = ['doi', 'dataset_title']
 duplicates = filtered_tdr.duplicated(subset=commonColumns, keep=False)
 dualStatusDatasets = filtered_tdr[duplicates]
-dualStatusDatasets.to_csv(f"outputs/{todayDate}_{institutionFilename}_dual-status-datasets.csv")
+dualStatusDatasets.to_csv(f"outputs/{today}_{institution_filename}_dual-status-datasets.csv")
 
 #retrieving additional metadata for deposits by individual API call (one per DOI)
 ##retrieves both published and never-published draft datasets; if a published dataset is currently in DRAFT state, it will return the information for the DRAFT state
@@ -459,7 +463,7 @@ print("Beginning dataframe subsetting\n")
 data_select_tdr_native = [] 
 for item in data_tdr_native['datasets']:
     data = item.get('data', '')
-    datasetID = data.get('id', '')
+    dataset_id = data.get('id', '')
     pubDate = data.get('publicationDate', '')
     latest = data.get('latestVersion', {})
     status = latest.get('versionState', '')
@@ -494,26 +498,26 @@ for item in data_tdr_native['datasets']:
     unique_content_types = set()
     fileCount = len(files)
     for file in files:
-        fileInfo = file['dataFile']
-        unique_content_types.add(fileInfo['contentType'])
+        file_info = file['dataFile']
+        unique_content_types.add(file_info['contentType'])
         file_entry = {
-            'datasetID': datasetID,
+            'dataset_id': dataset_id,
             'doi': doi,
             #'status': status,
-            'currentStatus': status2,
-            'reuseRequirements': usage,
+            'current_status': status2,
+            'reuse_requirements': usage,
             #'fileCount': fileCount,
             #'unique_content_types': list(unique_content_types),
-            'fileID': fileInfo.get('id', ''),
-            'public': fileInfo.get('restricted', ''),
-            'filename': fileInfo.get('filename', ''),
-            'mimeType': fileInfo.get('contentType', ''),
-            'friendlyType': fileInfo.get('friendlyType', ''),
-            'tabular': fileInfo.get('tabularData', ''),
-            'fileSize': fileInfo.get('filesize', 0),
-            'storageIdentifier': fileInfo.get('storageIdentifier', ''),
-            'creationDate': fileInfo.get('creationDate', ''),
-            'publicationDate': fileInfo.get('publicationDate', ''),
+            'file_id': file_info.get('id', ''),
+            'public': file_info.get('restricted', ''),
+            'filename': file_info.get('filename', ''),
+            'mime_type': file_info.get('contentType', ''),
+            'friendly_type': file_info.get('friendlyType', ''),
+            'tabular': file_info.get('tabularData', ''),
+            'file_size': file_info.get('filesize', 0),
+            'storage_identifier': file_info.get('storageIdentifier', ''),
+            'creation_date': file_info.get('creationDate', ''),
+            'publication_date': file_info.get('publicationDate', ''),
             'restricted': file.get('restricted', ''),
             'license': licenseName
         }
@@ -543,13 +547,13 @@ for item in data_tdr_native['datasets']:
 
                 author_entry = {
                     'doi': doi,
-                    'currentStatus': status2,
-                    'authorName': name,
-                    'authorAffiliation': affiliationName,
-                    'rorID': affiliation_ror,
-                    'authorIdentifier': identifier,
-                    'authorIdentifierExpanded': identifier_expanded,
-                    'authorIdentifierScheme': scheme
+                    'current_status': status2,
+                    'author_name': name,
+                    'author_affiliation': affiliationName,
+                    'ror_id': affiliation_ror,
+                    'author_identifier': identifier,
+                    'author_identifier_expanded': identifier_expanded,
+                    'author_identifier_scheme': scheme
                 }
                 author_entries.append(author_entry)
 
@@ -557,37 +561,38 @@ df_select_tdr_native = pd.json_normalize(data_select_tdr_native)
 df_author_entries = pd.json_normalize(author_entries)
 df_select_tdr_native['doi'] = df_select_tdr_native['doi'].str.replace('doi:', '')
 df_author_entries['doi'] = df_author_entries['doi'].str.replace('doi:', '')
-df_select_tdr_native['creationDate'] = pd.to_datetime(df_select_tdr_native['creationDate'])
-df_select_tdr_native['fileCreationYear'] = df_select_tdr_native['creationDate'].dt.year
+df_select_tdr_native['creation_date'] = pd.to_datetime(df_select_tdr_native['creation_date'])
+df_select_tdr_native['file_creation_year'] = df_select_tdr_native['creation_date'].dt.year
 
-df_select_tdr_native = assign_size_bins(df_select_tdr_native, column='fileSize', new_column='fileSizeBin')
+df_select_tdr_native = assign_size_bins(df_select_tdr_native, column='file_size', new_column='file_size_bin')
 df_select_concatenated = pd.merge(filtered_tdr_deduplicated, df_select_tdr_native, on='doi', how="left")
-df_select_concatenated_exist = df_select_concatenated.dropna(subset=['datasetID']).copy() #removes deaccessioned
+df_select_concatenated_exist = df_select_concatenated.dropna(subset=['dataset_id']).copy() #removes deaccessioned
 
-df_select_concatenated_exist['datasetID'] = df_select_concatenated_exist['datasetID'].astype(int)
-df_select_concatenated_exist.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-deposits-deduplicated_expanded-metadata.csv")
+df_select_concatenated_exist['dataset_id'] = df_select_concatenated_exist['dataset_id'].astype(int)
+# As of 2025/12/05, temporarily coding out this CSV output
+# df_select_concatenated_exist.to_csv(f"outputs/{today}_{institution_filename}_all-datasets-deduplicated_expanded-metadata.csv")
 
 #subset to datasets that are less than version 2.0 (no major update, no file additions)
-df_select_concatenated_exist_majorVersion = df_select_concatenated_exist[df_select_concatenated_exist['majorVersion'] > 1]
+df_select_concatenated_exist_majorVersion = df_select_concatenated_exist[df_select_concatenated_exist['major_version'] > 1]
 
 #need to use Version endpoint to get info on published version of published datasets that are currently in DRAFT status and all published versions of a dataset with multiple PUBLISHED versions. This endpoint is public and does not return any DRAFTs.
 #remove datasets that have never been published (will not return any info for this endpoint)
-df_select_concatenated_exist_published = df_select_concatenated_exist_majorVersion[df_select_concatenated_exist_majorVersion['publicationDate'].notnull()]
-#deduplicate on datasetID
-df_select_concatenated_exist_published_dedup = df_select_concatenated_exist_published.drop_duplicates(subset="datasetID", keep="first")
+df_select_concatenated_exist_published = df_select_concatenated_exist_majorVersion[df_select_concatenated_exist_majorVersion['publication_date'].notnull()]
+#deduplicate on dataset_id
+df_select_concatenated_exist_published_dedup = df_select_concatenated_exist_published.drop_duplicates(subset="dataset_id", keep="first")
 
-if versionsAPI:
+if versions_API:
     results_versions = []
     print("Beginning Version API query\n")
-    for datasetID in df_select_concatenated_exist_published_dedup['datasetID']:
+    for dataset_id in df_select_concatenated_exist_published_dedup['dataset_id']:
         try:
-            response = requests.get(f'{url_tdr_native}{datasetID}/versions')
+            response = requests.get(f'{url_tdr_native}{dataset_id}/versions')
             if response.status_code == 200:
-                print(f"Retrieving versions of dataset #{datasetID}")
+                print(f"Retrieving versions of dataset #{dataset_id}")
                 print()
                 results_versions.append(response.json())
             else:
-                print(f"Error retrieving dataset #{datasetID}: {response.status_code}, {response.text}")
+                print(f"Error retrieving dataset #{dataset_id}: {response.status_code}, {response.text}")
         except requests.exceptions.RequestException as e:
             print(f"Timeout error on DOI {doi}: {e}")
 
@@ -615,23 +620,23 @@ if versionsAPI:
                 fileInfo = file['dataFile']
                 data_select_tdr_versions.append({
                     'doi': doi,
-                    'versionID': id,
-                    'datasetID': datasetid,
-                    #'majorVersion': majorV,
-                    #'minorVersion': minorV,
-                    'totalVersion': comboV,
-                    'fileID': fileInfo.get('id', ''),
+                    'version_id': id,
+                    'dataset_id': datasetid,
+                    #'major_version': majorV,
+                    #'minor_version': minorV,
+                    'total_version': comboV,
+                    'file_id': fileInfo.get('id', ''),
                     'filename': fileInfo.get('filename', ''),
-                    'mimeType': fileInfo.get('contentType', ''),
-                    'friendlyType': fileInfo.get('friendlyType', ''),
+                    'mime_type': fileInfo.get('contentType', ''),
+                    'friendly_type': fileInfo.get('friendlyType', ''),
                     #'status': status,
-                    'currentStatus': status2,
+                    'current_status': status2,
                     #'tabular': fileInfo.get('tabularData', ''),
-                    'fileSize': fileInfo.get('filesize', ''),
-                    'storageIdentifier': fileInfo.get('storageIdentifier', ''),
+                    'file_size': fileInfo.get('filesize', ''),
+                    'storage_identifier': fileInfo.get('storageIdentifier', ''),
                     #'md5': fileInfo.get('md5', ''),
-                    'creationDate': fileInfo.get('creationDate', ''),
-                    'publicationDate': fileInfo.get('publicationDate', ''),
+                    'creation_date': fileInfo.get('creationDate', ''),
+                    'publication_date': fileInfo.get('publicationDate', ''),
                     'restricted': file.get('restricted', ''),
                     'license': licenseName
                 })
@@ -661,13 +666,13 @@ if versionsAPI:
 
                         author_entry = {
                             'doi': doi,
-                            'currentStatus': status2,
-                            'authorName': name,
-                            'authorAffiliation': affiliationName,
-                            'rorID': affiliation_ror,
-                            'authorIdentifier': identifier,
-                            'authorIdentifierExpanded': identifier_expanded,
-                            'authorIdentifierScheme': scheme
+                            'current_status': status2,
+                            'author_name': name,
+                            'author_affiliation': affiliationName,
+                            'ror_id': affiliation_ror,
+                            'author_identifier': identifier,
+                            'author_identifier_expanded': identifier_expanded,
+                            'author_identifier_scheme': scheme
                         }
                         author_entries_versions.append(author_entry)
 
@@ -676,54 +681,54 @@ if versionsAPI:
     df_select_tdr_versions['doi'] = df_select_tdr_versions['doi'].str.replace('doi:', '')
     df_author_entries_versions['doi'] = df_author_entries_versions['doi'].str.replace('doi:', '')
     #removing duplicate entries for a given file that has not changed across multiple versions
-    df_select_tdr_versions['totalVersion'] = df_select_tdr_versions['totalVersion'].astype(float)
-    df_select_tdr_versions = df_select_tdr_versions.sort_values(by='totalVersion')
-    df_select_tdr_versions_deduplicated = df_select_tdr_versions.drop_duplicates(subset=['datasetID', 'storageIdentifier'], keep='first')
+    df_select_tdr_versions['total_version'] = df_select_tdr_versions['total_version'].astype(float)
+    df_select_tdr_versions = df_select_tdr_versions.sort_values(by='total_version')
+    df_select_tdr_versions_deduplicated = df_select_tdr_versions.drop_duplicates(subset=['dataset_id', 'storage_identifier'], keep='first')
 
-    df_select_tdr_versions_deduplicated = assign_size_bins(df_select_tdr_versions_deduplicated, column='fileSize', new_column='fileSizeBin')
+    df_select_tdr_versions_deduplicated = assign_size_bins(df_select_tdr_versions_deduplicated, column='file_size', new_column='file_size_bin')
 
     df_select_versions_concatenated_released = pd.merge(df_select_tdr_versions_deduplicated, filtered_tdr_deduplicated, on='doi', how="left")
 
     #pruning and renaming columns in the two dataframes that collectively (should) have all of the files (from the Native and the Version endpoints)
-    df_version_pruned = df_select_versions_concatenated_released[["versionID_x", "datasetID", "totalVersion_x", "filename", "fileID", "mimeType", "friendlyType", "fileSize", "storageIdentifier", "creationDate", "publicationDate", "institution", "doi", "fileSizeBin", "datasetTitle", "dataverse", "restricted", "license"]]
-    df_version_pruned = df_version_pruned.rename(columns={'totalVersion_x': 'totalVersion', 'filename_x': 'filename', 'fileSize_x': 'fileSize', 'storageIdentifier_x': 'storageIdentifier', 'creationDate_x': 'creationDate', 'publicationDate_x':'publicationDate', 'versionID_x': 'versionID'})
-    df_version_pruned['creationYear'] = pd.to_datetime(df_version_pruned['creationDate'], format="%Y-%m-%d").dt.year
-    df_version_pruned['publicationYear'] = pd.to_datetime(df_version_pruned['publicationDate'], format="%Y-%m-%d").dt.year
+    df_version_pruned = df_select_versions_concatenated_released[["version_id_x", "dataset_id", "totalVersion_x", "filename", "file_id", "mime_type", "friendly_type", "file_size", "storage_identifier", "creation_date", "publication_date", "institution", "doi", "file_size_bin", "dataset_title", "dataverse", "restricted", "license"]]
+    df_version_pruned = df_version_pruned.rename(columns={'total_version_x': 'total_version', 'filename_x': 'filename', 'file_size_x': 'file_size', 'storage_identifier_x': 'storage_identifier', 'creation_date_x': 'creation_date', 'publication_date_x':'publication_date', 'version_id_x': 'version_id'})
+    df_version_pruned['creation_year'] = pd.to_datetime(df_version_pruned['creation_date'], format="%Y-%m-%d").dt.year
+    df_version_pruned['publication_year'] = pd.to_datetime(df_version_pruned['publication_date'], format="%Y-%m-%d").dt.year
 
-df_native_pruned = df_select_concatenated_exist[["datasetID", "datasetTitle", "versionID", "currentStatus", "totalVersion", "filename", "fileID", "mimeType", "friendlyType", "fileSize", "storageIdentifier", "creationDate", "publicationDate", "institution", "doi", "fileSizeBin", "dataverse", "restricted", "license"]]
+df_native_pruned = df_select_concatenated_exist[["dataset_id", "dataset_title", "version_id", "current_status", "total_version", "filename", "file_id", "mime_type", "friendly_type", "file_size", "storage_identifier", "creation_date", "publication_date", "institution", "doi", "file_size_bin", "dataverse", "restricted", "license"]]
 df_native_pruned = df_native_pruned.copy()
-df_native_pruned['creationYear'] = pd.to_datetime(df_native_pruned['creationDate'], format="%Y-%m-%dT%H:%M:%SZ").dt.year
-df_native_pruned['publicationYear'] = pd.to_datetime(df_native_pruned['publicationDate'], format="%Y-%m-%d").dt.year
+df_native_pruned['creation_year'] = pd.to_datetime(df_native_pruned['creation_date'], format="%Y-%m-%dT%H:%M:%SZ").dt.year
+df_native_pruned['publication_year'] = pd.to_datetime(df_native_pruned['publication_date'], format="%Y-%m-%d").dt.year
 
-if versionsAPI:
+if versions_API:
     df_all_files_concat = pd.concat([df_version_pruned, df_native_pruned], ignore_index=True)
-    df_all_files_concat = df_all_files_concat.rename(columns={'title': 'datasetTitle'})
+    df_all_files_concat = df_all_files_concat.rename(columns={'title': 'dataset_title'})
 
     #deduplicate
     ##create fake versionID for drafts to ensure proper sorting and deduplicating
-    df_all_files_concat['versionID'] = df_all_files_concat['versionID'].fillna(9999999)
-    df_all_files_concat['versionID'] = pd.to_numeric(df_all_files_concat['versionID'], errors='coerce')
-    df_all_files_concat = df_all_files_concat.sort_values(by='versionID')
-    df_all_files_concat_deduplicated = df_all_files_concat.drop_duplicates(subset=['storageIdentifier'], keep='first')
+    df_all_files_concat['version_id'] = df_all_files_concat['version_id'].fillna(9999999)
+    df_all_files_concat['version_id'] = pd.to_numeric(df_all_files_concat['version_id'], errors='coerce')
+    df_all_files_concat = df_all_files_concat.sort_values(by='version_id')
+    df_all_files_concat_deduplicated = df_all_files_concat.drop_duplicates(subset=['storage_identifier'], keep='first')
     df_all_files_concat_deduplicated = df_all_files_concat_deduplicated.copy()
-    df_all_files_concat_deduplicated['versionID'] = df_all_files_concat_deduplicated['versionID'].replace(9999999, None)
+    df_all_files_concat_deduplicated['version_id'] = df_all_files_concat_deduplicated['version_id'].replace(9999999, None)
     df_all_authors_concat = pd.concat([df_author_entries, df_author_entries_versions], ignore_index=True)
-    df_all_authors_concat_deduplicated = df_all_authors_concat.drop_duplicates(subset=['doi', 'authorName', 'authorAffiliation', 'currentStatus'], keep='first')
+    df_all_authors_concat_deduplicated = df_all_authors_concat.drop_duplicates(subset=['doi', 'author_name', 'author_affiliation', 'current_status'], keep='first')
 else:
     #sort on status and then total version, setting 'DRAFT' at bottom to remove this version for published datasets that are in draft state, retain entry of 'PUBLISHED' and then to keep the earliest version
-    df_native_pruned = df_native_pruned.sort_values(by=['currentStatus', 'totalVersion'], ascending=[False, True])
-    df_all_files_concat_deduplicated = df_native_pruned.drop_duplicates(subset=['storageIdentifier'], keep='first')
-    df_all_authors_concat_deduplicated = df_author_entries.drop_duplicates(subset=['doi', 'authorName', 'authorAffiliation', 'currentStatus'], keep='first')
+    df_native_pruned = df_native_pruned.sort_values(by=['current_status', 'total_version'], ascending=[False, True])
+    df_all_files_concat_deduplicated = df_native_pruned.drop_duplicates(subset=['storage_identifier'], keep='first')
+    df_all_authors_concat_deduplicated = df_author_entries.drop_duplicates(subset=['doi', 'author_name', 'author_affiliation', 'current_status'], keep='first')
 
 #metadata assessment
-##readme presence
-df_all_files_concat_deduplicated.loc[:,'isREADME'] = df_all_files_concat_deduplicated['filename'].str.contains('readme', case=False)
-df_all_files_concat_deduplicated.loc[:,'isCodebook'] = df_all_files_concat_deduplicated['filename'].str.contains('codebook', case=False)
-df_all_files_concat_deduplicated.loc[:,'isDataDict'] = df_all_files_concat_deduplicated['filename'].str.contains('dictionary', case=False) #need to check sensitivity
+##documentation presence
+df_all_files_concat_deduplicated.loc[:,'is_readme'] = df_all_files_concat_deduplicated['filename'].str.contains('readme', case=False)
+df_all_files_concat_deduplicated.loc[:,'is_codebook'] = df_all_files_concat_deduplicated['filename'].str.contains('codebook', case=False)
+df_all_files_concat_deduplicated.loc[:,'is_data_dictionary'] = df_all_files_concat_deduplicated['filename'].str.contains('dictionary', case=False) #need to check sensitivity
 
 ##create separate friendlyFormat column
 formatMap = config['FORMAT_MAP']
-df_all_files_concat_deduplicated.loc[:,'friendlyFormat_manual'] = df_all_files_concat_deduplicated['mimeType'].apply(
+df_all_files_concat_deduplicated.loc[:,'friendly_format_manual'] = df_all_files_concat_deduplicated['mime_type'].apply(
     lambda x: formatMap.get(x.strip(), x.strip()) if isinstance(x, str) and x != "no match found" else "no files"
 )
 ##file formats
@@ -731,19 +736,27 @@ softwareFormats = set(config['SOFTWARE_FORMATS'].keys())
 compressedFormats = set(config['COMPRESSED_FORMATS'].keys())
 microsoftFormats = set(config['MICROSOFT_FORMATS'].keys())
 # Assume softwareFormats is a set of friendly software format names
-df_all_files_concat_deduplicated.loc[:,'isSoftware'] = df_all_files_concat_deduplicated['mimeType'].apply(
+df_all_files_concat_deduplicated.loc[:,'is_software'] = df_all_files_concat_deduplicated['mime_type'].apply(
     lambda x: any(part.strip() in softwareFormats for part in x.split(';')) if isinstance(x, str) else False
 )
-df_all_files_concat_deduplicated.loc[:,'isCompressed'] = df_all_files_concat_deduplicated['mimeType'].apply(
+df_all_files_concat_deduplicated.loc[:,'is_compressed'] = df_all_files_concat_deduplicated['mime_type'].apply(
     lambda x: any(part.strip() in compressedFormats for part in x.split(';')) if isinstance(x, str) else False
 )
-df_all_files_concat_deduplicated.loc[:,'isMSOffice'] = df_all_files_concat_deduplicated['mimeType'].apply(
+df_all_files_concat_deduplicated.loc[:,'is_microsoft_office'] = df_all_files_concat_deduplicated['mime_type'].apply(
     lambda x: any(part.strip() in microsoftFormats for part in x.split(';')) if isinstance(x, str) else False
 )
 
-df_all_files_concat_deduplicated.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-files-deduplicated.csv")
+# Manual file extension grabbing
+df_all_files_concat_deduplicated['extension_minimum'] = df_all_files_concat_deduplicated['filename'].str.extract(r'(\.[^.]+)$')
+df_all_files_concat_deduplicated['extension_maximum'] = df_all_files_concat_deduplicated['filename'].str.extract(r'(\..*)')
 
-sum_columns = ['fileSize']
+if exclude_drafts:
+    df_all_files_concat_deduplicated_published = df_all_files_concat_deduplicated[df_all_files_concat_deduplicated['publication_date'].notna() & (df_all_files_concat_deduplicated['publication_date'] != '')]
+    df_all_files_concat_deduplicated_published.to_csv(f"outputs/{today}_{institution_filename}_all-files-deduplicated-PUBLISHED.csv")
+else:
+    df_all_files_concat_deduplicated.to_csv(f"outputs/{today}_{institution_filename}_all-files-deduplicated-ALL.csv")
+
+sum_columns = ['file_size']
 
 def agg_func(column_name):
     if column_name in sum_columns:
@@ -751,104 +764,131 @@ def agg_func(column_name):
     else:
         return lambda x: sorted(set(map(str, x)))
 
-agg_funcs = {col: agg_func(col)for col in df_all_files_concat_deduplicated.columns if col != 'datasetID'}
+agg_funcs = {col: agg_func(col)for col in df_all_files_concat_deduplicated.columns if col != 'dataset_id'}
 
-df_tdr_all_files_combined = df_all_files_concat_deduplicated.groupby('datasetID').agg(agg_funcs).reset_index()
+df_tdr_all_files_combined = df_all_files_concat_deduplicated.groupby('dataset_id').agg(agg_funcs).reset_index()
 # Convert all list-type columns to comma-separated strings
 for col in df_tdr_all_files_combined.columns:
     if df_tdr_all_files_combined[col].apply(lambda x: isinstance(x, list)).any():
         df_tdr_all_files_combined[col] = df_tdr_all_files_combined[col].apply(lambda x: '; '.join(map(str, x)))
 
-tdr_all_datasets_deduplicated = df_tdr_all_files_combined.drop_duplicates(subset='datasetID', keep='first')
-tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated[["datasetID", "versionID", "totalVersion", "mimeType", "friendlyType", "fileSize", "creationDate", "publicationDate", "institution", "doi", "datasetTitle", "dataverse", "creationYear", "publicationYear", "restricted", "license", "isREADME", "isCodebook", "isDataDict", "friendlyFormat_manual", "isSoftware", "isCompressed", "isMSOffice"]]
+tdr_all_datasets_deduplicated = df_tdr_all_files_combined.drop_duplicates(subset='dataset_id', keep='first')
+tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated[["dataset_id", "version_id", "total_version", "mime_type", "friendly_type", "file_size", "creation_date", "publication_date", "institution", "doi", "dataset_title", "dataverse", "creation_year", "publication_year", "restricted", "license", "is_readme", "is_codebook", "is_data_dictionary", "friendly_format_manual", "is_software", "is_compressed", "is_microsoft_office"]]
 
 #handles entries where aggregation returned a mixed 'False;True' value
 def normalize_boolean_column(col):
     return col.apply(lambda x: True if isinstance(x, str) and 'true' in x.lower() else False)
-bool_columns = ["isREADME", "isCodebook", "isDataDict", "isSoftware", "isCompressed", "isMSOffice"]
+bool_columns = ["is_readme", "is_codebook", "is_data_dictionary", "is_software", "is_compressed", "is_microsoft_office"]
 tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated_pruned.copy()
 for col in bool_columns:
     tdr_all_datasets_deduplicated_pruned[col] = normalize_boolean_column(tdr_all_datasets_deduplicated_pruned[col])
-tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated_pruned.rename(columns={'isREADME': 'containsREADME', 'isCodebook': 'containsCodebook', 'isDataDict': 'containsDataDict', 'isSoftware': 'containsSoftware', 'isCompressed': 'containsCompressed', 'isMSOffice': 'containsMSOffice', 'fileSize': 'datasetSize'})
+tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated_pruned.rename(columns={'is_readme': 'contains_readme', 'is_codebook': 'contains_codebook', 'is_data_dictionary': 'contains_data_dictionary', 'is_software': 'contains_software', 'is_compressed': 'contains_compressed', 'is_microsoft_office': 'contains_microsoft_office', 'file_size': 'dataset_size'})
 
-#returns only the highest value for the version number
-def extract_max_version(val):
-    if isinstance(val, str):
-        try:
-            versions = [float(v.strip()) for v in val.split(';')]
-            return max(versions)
-        except ValueError:
-            return val  # In case of unexpected format
-    return val
-tdr_all_datasets_deduplicated_pruned['totalVersion'] = tdr_all_datasets_deduplicated_pruned['totalVersion'].apply(extract_max_version)
+tdr_all_datasets_deduplicated_pruned['total_version'] = tdr_all_datasets_deduplicated_pruned['total_version'].apply(extract_max_version)
 
 #binning datasets by size
-tdr_all_datasets_deduplicated_pruned = assign_size_bins(tdr_all_datasets_deduplicated_pruned, column='datasetSize', new_column='datasetSizeBin')
+tdr_all_datasets_deduplicated_pruned = assign_size_bins(tdr_all_datasets_deduplicated_pruned, column='dataset_size', new_column='dataset_size_bin')
 
-tdr_all_datasets_deduplicated_pruned.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-datasets-combined.csv")
+if exclude_drafts:
+    tdr_all_datasets_deduplicated_pruned_published = tdr_all_datasets_deduplicated_pruned[tdr_all_datasets_deduplicated_pruned['publication_date'].notna() & (tdr_all_datasets_deduplicated_pruned['publication_date'] != '')]
+    tdr_all_datasets_deduplicated_pruned_published.to_csv(f"outputs/{today}_{institution_filename}_all-datasets-combined-PUBLISHED.csv")
+else:
+    tdr_all_datasets_deduplicated_pruned.to_csv(f"outputs/{today}_{institution_filename}_all-datasets-combined-ALL.csv")
 
 #size summary
-size_by_year = df_all_files_concat_deduplicated.groupby('creationYear')['fileSize'].sum().reset_index()
-size_by_year['fileGB'] = size_by_year['fileSize'] / 1000000000
+size_by_year = df_all_files_concat_deduplicated.groupby('creation_year')['file_size'].sum().reset_index()
+size_by_year['fileGB'] = size_by_year['file_size'] / 1000000000
 print('Annual size summary')
 print(size_by_year)
-size_by_year.to_csv(f"outputs/{todayDate}_{institutionFilename}_annual-size-summary.csv")
+if exclude_drafts:
+    size_by_year_published = df_all_files_concat_deduplicated_published.groupby('creation_year')['file_size'].sum().reset_index()
+    size_by_year_published['fileGB'] = size_by_year_published['file_size'] / 1000000000
+    size_by_year_published.to_csv(f"outputs/{today}_{institution_filename}_SUMMARY-annual-size-PUBLISHED.csv")
+else:
+    size_by_year.to_csv(f"outputs/{today}_{institution_filename}_SUMMARY-annual-size-ALL.csv")
 
 #file format summary
-##can substitute 'friendlyType' for 'mimeType' but will get some aggregating into 'unknown'
-unique_datasets_per_format = df_all_files_concat_deduplicated.groupby('friendlyFormat_manual')['datasetID'].nunique()
+##can substitute 'friendly_type' for 'mime_type' but will get some aggregating into 'unknown'
+unique_datasets_per_format = df_all_files_concat_deduplicated.groupby('friendly_format_manual')['dataset_id'].nunique()
 print('Total file format summary')
 print(unique_datasets_per_format)
-unique_datasets_per_format.to_csv(f"outputs/{todayDate}_{institutionFilename}_unique-format-summary.csv")
+if exclude_drafts:
+    unique_datasets_per_format_PUBLISHED = df_all_files_concat_deduplicated_published.groupby('friendly_format_manual')['dataset_id'].nunique()
+    unique_datasets_per_format_PUBLISHED.to_csv(f"outputs/{today}_{institution_filename}_SUMMARY-unique-format-PUBLISHED.csv")
+else:
+    unique_datasets_per_format.to_csv(f"outputs/{today}_{institution_filename}_SUMMARY-unique-format-ALL.csv")
 
 #author assessment
+##fuzzy matching author names
+unique_names = df_all_authors_concat_deduplicated['author_name'].unique()
+standardized_names = {}
+
+for name in unique_names:
+# Only try to match if standardized_names is not empty
+    if standardized_names:
+        result = process.extractOne(name, standardized_names.keys(), scorer=fuzz.token_sort_ratio)
+        if result is not None:
+            match, score, _ = result  # rapidfuzz returns (match, score, index)
+            if score > 80:  # Adjust threshold as needed
+                standardized_names[name] = match
+            else:
+                standardized_names[name] = name
+        else:
+            standardized_names[name] = name
+    else:
+        standardized_names[name] = name  # First name, nothing to match yet
+df_all_authors_concat_deduplicated['author_name_standardized'] = df_all_authors_concat_deduplicated['author_name'].map(standardized_names)
+
 ##is ROR present
 df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.copy()
-df_all_authors_concat_deduplicated.loc[:, 'missingROR'] = (df_all_authors_concat_deduplicated['rorID'].isna() | (df_all_authors_concat_deduplicated['rorID'] == ''))
+df_all_authors_concat_deduplicated.loc[:, 'missing_ror'] = (df_all_authors_concat_deduplicated['ror_id'].isna() | (df_all_authors_concat_deduplicated['ror_id'] == ''))
 ##is any author ID system present
-df_all_authors_concat_deduplicated.loc[:, 'missingAuthorScheme'] = (df_all_authors_concat_deduplicated['authorIdentifierScheme'].isna() |
-    (df_all_authors_concat_deduplicated['authorIdentifierScheme'] == ''))
+df_all_authors_concat_deduplicated.loc[:, 'missing_author_scheme'] = (df_all_authors_concat_deduplicated['author_identifier_scheme'].isna() |
+    (df_all_authors_concat_deduplicated['author_identifier_scheme'] == ''))
 ##ORCID present and appropriately formatted
-df_all_authors_concat_deduplicated.loc[:, 'properORCID'] = (
-    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
-) & df_all_authors_concat_deduplicated['authorIdentifier'].str.contains('https://orcid.org/', na=False)
+df_all_authors_concat_deduplicated.loc[:, 'proper_orcid'] = (
+    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
+) & df_all_authors_concat_deduplicated['author_identifier'].str.contains('https://orcid.org/', na=False)
 ##is ORCID present but malformatted (not hyperlinked)
-df_all_authors_concat_deduplicated.loc[:,'malformedORCID_noHyphens'] = (
-    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
-) & ~df_all_authors_concat_deduplicated['authorIdentifier'].str.contains('-', na=False)
+df_all_authors_concat_deduplicated.loc[:,'malformed_orcid_no_hyphens'] = (
+    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
+) & ~df_all_authors_concat_deduplicated['author_identifier'].str.contains('-', na=False)
 ##is ORCID present but malformatted (no dashes)
-df_all_authors_concat_deduplicated.loc[:,'malformedORCID_noURL'] = (
-    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
-) & ~df_all_authors_concat_deduplicated['authorIdentifier'].str.contains('https://orcid.org/', na=False)
+df_all_authors_concat_deduplicated.loc[:,'malformed_orcid_no_url'] = (
+    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
+) & ~df_all_authors_concat_deduplicated['author_identifier'].str.contains('https://orcid.org/', na=False)
 ##is ORCID present but malformatted (single field)
-df_all_authors_concat_deduplicated.loc[:,'malformedORCID_singleField'] = (
-    df_all_authors_concat_deduplicated['authorIdentifierScheme'].str.upper() == 'ORCID'
-) & df_all_authors_concat_deduplicated['authorIdentifierExpanded'].isna()
+df_all_authors_concat_deduplicated.loc[:,'malformed_orcid_single_field'] = (
+    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
+) & df_all_authors_concat_deduplicated['author_identifier_expanded'].isna()
 
-df_all_authors_concat_deduplicated.loc[:, 'malformedORCID_any'] = (
-    df_all_authors_concat_deduplicated['malformedORCID_noHyphens'] |
-    df_all_authors_concat_deduplicated['malformedORCID_noURL'] |
-    df_all_authors_concat_deduplicated['malformedORCID_singleField']
+df_all_authors_concat_deduplicated.loc[:, 'malformed_orcid_any'] = (
+    df_all_authors_concat_deduplicated['malformed_orcid_no_hyphens'] |
+    df_all_authors_concat_deduplicated['malformed_orcid_no_url'] |
+    df_all_authors_concat_deduplicated['malformed_orcid_single_field']
 )
 ##malformed author name (order)
-df_all_authors_concat_deduplicated.loc[:, 'malformedOrder'] = (
-    df_all_authors_concat_deduplicated['authorName'].str.contains(' ', na=False) & 
-    ~df_all_authors_concat_deduplicated['authorName'].str.contains(',', na=False)
+df_all_authors_concat_deduplicated.loc[:, 'malformed_order'] = (
+    df_all_authors_concat_deduplicated['author_name'].str.contains(' ', na=False) & 
+    ~df_all_authors_concat_deduplicated['author_name'].str.contains(',', na=False)
 )
 ##malformed initial (standalone initial without period)
-df_all_authors_concat_deduplicated.loc[:, 'malformedInitial'] = df_all_authors_concat_deduplicated['authorName'].str.contains(r'\b[A-Z]\b(?!\.)', regex=True)
+df_all_authors_concat_deduplicated.loc[:, 'malformed_initial'] = df_all_authors_concat_deduplicated['author_name'].str.contains(r'\b[A-Z]\b(?!\.)', regex=True)
 
-df_all_authors_concat_deduplicated.loc[:, 'malformedName'] = (
-    df_all_authors_concat_deduplicated['malformedOrder'] |
-    df_all_authors_concat_deduplicated['malformedInitial'] 
+df_all_authors_concat_deduplicated.loc[:, 'malformed_name'] = (
+    df_all_authors_concat_deduplicated['malformed_order'] |
+    df_all_authors_concat_deduplicated['malformed_initial'] 
 )
 
-df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.sort_values(by='authorName')
-df_all_authors_concat_deduplicated.to_csv(f'outputs/{todayDate}_{institutionFilename}_all-authors.csv', index=False)
+if exclude_drafts:
+    df_all_authors_concat_deduplicated_published = df_all_authors_concat_deduplicated[df_all_authors_concat_deduplicated['current_status'] != 'DRAFT']
+    df_all_authors_concat_deduplicated_published.to_csv(f'outputs/{today}_{institution_filename}_all-authors-PUBLISHED.csv', index=False)
+else:
+    df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.sort_values(by='author_name')
+    df_all_authors_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-authors-ALL.csv', index=False)
 
-df_all_affiliations_dedup = df_all_authors_concat_deduplicated.drop_duplicates(subset=['authorAffiliation'], keep='first')
-df_all_affiliations_dedup = df_all_affiliations_dedup.rename(columns={'authorAffiliation': 'affiliation'})
-
+df_all_affiliations_dedup = df_all_authors_concat_deduplicated.drop_duplicates(subset=['author_affiliation'], keep='first')
+df_all_affiliations_dedup = df_all_affiliations_dedup.rename(columns={'author_affiliation': 'affiliation'})
 
 if master_ror_matching is None: #create master file if it doesn't exist yet
     print("No existing master file found, creating new one.\n")
@@ -864,30 +904,6 @@ else: #concat master file with new list of unique affiliations, drop duplicates 
     ##remove blanks
     df_all_affiliations_dedup_expanded_pruned = df_all_affiliations_dedup_expanded_pruned.dropna(subset=['affiliation'])
     df_all_affiliations_dedup_expanded_pruned.to_csv(f'{script_directory}/tdr-affiliation-ror-matching-TEMP.csv')
-    print(f"Number of new affiliations to check: {len(df_all_affiliations_dedup_expanded_pruned) - len(master_ror_matching)}")
-
-if excludeDrafts:
-    #authors
-    df_all_authors_concat_deduplicated_published = df_all_authors_concat_deduplicated[df_all_authors_concat_deduplicated['currentStatus'] != 'DRAFT']
-    df_all_authors_concat_deduplicated_published.to_csv(f'outputs/{todayDate}_{institutionFilename}_all-authors-PUBLISHED.csv', index=False)
-
-    #datasets
-    tdr_all_datasets_deduplicated_pruned_published = tdr_all_datasets_deduplicated_pruned[tdr_all_datasets_deduplicated_pruned['publicationDate'].notna() & (tdr_all_datasets_deduplicated_pruned['publicationDate'] != '')]
-    tdr_all_datasets_deduplicated_pruned_published.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-datasets-combined-PUBLISHED.csv")
-
-    #files
-    df_all_files_concat_deduplicated_published = df_all_files_concat_deduplicated[df_all_files_concat_deduplicated['publicationDate'].notna() & (df_all_files_concat_deduplicated['publicationDate'] != '')]
-    df_all_files_concat_deduplicated_published.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-files-deduplicated-PUBLISHED.csv")
-
-    #size summary
-    size_by_year_published = df_all_files_concat_deduplicated_published.groupby('creationYear')['fileSize'].sum().reset_index()
-    size_by_year_published['fileGB'] = size_by_year_published['fileSize'] / 1000000000
-    size_by_year_published.to_csv(f"outputs/{todayDate}_{institutionFilename}_annual-size-summary-PUBLISHED.csv")
-
-    #file format summary
-    ##can substitute 'friendlyType' for 'mimeType' but will get some aggregating into 'unknown'
-    unique_datasets_per_format_PUBLISHED = df_all_files_concat_deduplicated_published.groupby('friendlyFormat_manual')['datasetID'].nunique()
-    unique_datasets_per_format_PUBLISHED.to_csv(f"outputs/{todayDate}_{institutionFilename}_unique-format-summary-PUBLISHED.csv")
 
 #dataverse-level summary
 query = '*'
@@ -1038,7 +1054,7 @@ tamu_combined_params = {
 }
 
 #substitute for your institution
-if onlyMyInstitution:
+if only_my_institution:
     if my_institution_shortName == "TAMU":
         params_list = tamu_combined_params
     else:
@@ -1075,10 +1091,10 @@ for item in all_dataverses:
     published = item.get('published_at', '')
     status = item.get('publicationStatuses', '')
     affiliation = item.get('affiliation', '')
-    parentDataverse = item.get('parentDataverseName', '')
-    parentDataverseID = item.get('parentDataverseIdentifier', '')
+    parent_dataverse_name = item.get('parentDataverseName', '')
+    parent_dataverse_id = item.get('parentDataverseIdentifier', '')
     dataverses_select_tdr.append({
-        'dataverseName': name, 
+        'dataverse_name': name, 
         'url': url,
         'identifier': identifier,
         'type': type,
@@ -1086,8 +1102,8 @@ for item in all_dataverses:
         'description': description,
         'published': published,
         'affiliation': affiliation,
-        'parentDataverse': parentDataverse,
-        'parentDataverseID': parentDataverseID
+        'parent_dataverse_name': parent_dataverse_name,
+        'parent_dataverse_id': parent_dataverse_id
     })
 
 df_dataverses_select_tdr = pd.DataFrame(dataverses_select_tdr)
@@ -1117,32 +1133,31 @@ for item in data_tdr_native['dataverses']:
     data = item.get('data')
     id = data.get('id', '')
     contacts = data.get('dataverseContacts', [])
-    contactEmail = [contact.get('contactEmail', None) for contact in contacts if isinstance(contact, dict)]
-    contactsCount = len(contactEmail)
+    contact_email = [contact.get('contactEmail', None) for contact in contacts if isinstance(contact, dict)]
+    contactsCount = len(contact_email)
     permission = data.get('permissionRoot', '')
-    dataverseType = data.get('dataverseType', '')
-    metadataBlock = data.get('isMetadataBlockRoot', '')
-    facetRoot = data.get('isFacetRoot', '')
+    dataverse_type = data.get('dataverseType', '')
+    metadata_block = data.get('isMetadataBlockRoot', '')
+    facet_root = data.get('isFacetRoot', '')
     owner = data.get('ownerId', '')
     created = data.get('creationDate', '')
     identifier = data.get('alias', '')
     released = data.get('isReleased', '')
     data_select_tdr_native.append({
         'id': id,
-        'contactEmail': contactEmail,
-        'contactCount': contactsCount, 
+        'contact_email': contact_email,
+        'contact_count': contactsCount, 
         'owner': owner,
-        'dataverseType': dataverseType,
+        'dataverse_type': dataverse_type,
         'permission': permission,
-        'metadataBlock': metadataBlock,
-        'facetRoot': facetRoot,
+        'metadata_block': metadata_block,
+        'facet_root': facet_root,
         'created': created,
         'identifier': identifier,
         'released': released
     })
 
 df_select_tdr_native = pd.json_normalize(data_select_tdr_native)
-df_select_tdr_native.to_csv(f"outputs/{todayDate}-test-debug.csv")
 
 #merge dfs
 df_select_concatenated = pd.merge(df_dataverses_select_tdr, df_select_tdr_native, on='identifier', how="left")
@@ -1158,13 +1173,13 @@ for identifier in df_dataverses_select_tdr['identifier']:
     try:
         response = requests.get(url_contents.format(identifier), headers=headers_tdr, timeout=5)
         if response.status_code == 200:
-            print(f"Retrieving contents for {identifier}")
+            print(f"Retrieving contents for {identifier}\n")
             contents_results.append(response.json())
         else:
-            print(f"Error retrieving contents for {identifier}: {response.status_code}, {response.text}")
+            print(f"Error retrieving contents for {identifier}: {response.status_code}, {response.text}\n")
             contents_results.append(None)
     except requests.exceptions.RequestException as e:
-        print(f"Timeout error on contents {identifier}: {e}")
+        print(f"Timeout error on contents {identifier}: {e}\n")
         contents_results.append(None)
     
     # # Fetch storagesize
@@ -1197,15 +1212,50 @@ num_datasets = [
     for contents in contents_results
 ]
 
+# Get dataset DOIs
+dataset_dois = [
+    '; '.join(
+        item.get('persistentUrl', '').replace('https://doi.org/', '')
+        for item in (contents.get('data', []) if isinstance(contents, dict) else [])
+        if item.get('type') == 'dataset' and 'persistentUrl' in item
+    )
+    for contents in contents_results
+]
+
 # Add to DataFrame
 df_select_concatenated['num_dataverses'] = num_dataverses
 df_select_concatenated['num_datasets'] = num_datasets
+df_select_concatenated['dataset_dois'] = dataset_dois
 
-df_select_concatenated.to_csv(f"outputs/{todayDate}_{institutionFilename}_all-dataverses.csv")
+df_select_concatenated.to_csv(f"outputs/{today}_{institution_filename}_all-dataverses.csv")
+df_select_concatenated_pruned = df_select_concatenated[['dataverse_name', 'url', 'identifier', 'parent_dataverse_name', 'parent_dataverse_id', 'id', 'contact_email', 'owner', 'dataset_dois']]
+
+if exclude_drafts:
+    dataverse_dataset_merged = pd.merge(
+        tdr_all_datasets_deduplicated_pruned_published,
+        df_select_concatenated_pruned,
+        left_on='dataverse',
+        right_on='dataverse_name',
+        how='left'
+    )
+    dataverse_dataset_merged = dataverse_dataset_merged.fillna({'dataverse_name': 'Default institutional dataverse', 'parent_dataverse_name': 'None', 'parent_dataverse_id': 0, 'contact_email': 'None', 'owner': 0, 'id': 0, 'dataset_dois': 'Not applicable'})
+    
+    dataverse_dataset_merged.to_csv(f"outputs/{today}_{institution_filename}_all-datasets-combined-with-dataverses-PUBLISHED.csv")
+else:
+    dataverse_dataset_merged = pd.merge(
+        tdr_all_datasets_deduplicated_pruned,
+        df_select_concatenated_pruned,
+        left_on='dataverse',
+        right_on='dataverse_name',
+        how='left'
+    )
+    dataverse_dataset_merged = dataverse_dataset_merged.fillna({'dataverse_name': 'Default institutional dataverse', 'parent_dataverse_name': 'None', 'parent_dataverse_id': 0, 'contact_email': 'None', 'owner': 0, 'id': 0, 'dataset_dois': 'Not applicable'})
+    
+    dataverse_dataset_merged.to_csv(f"outputs/{today}_{institution_filename}_all-datasets-combined-with-dataverses-ALL.csv")
 
 print("Done.\n")
-print(f"Time to run: {datetime.now() - startTime}\n")
+if master_ror_matching is not None:
+    print(f"Number of new affiliations to check: {len(df_all_affiliations_dedup_expanded_pruned) - len(master_ror_matching)}.\n")
+print(f"Time to run: {datetime.now() - start_time}\n")
 if test:
-    print("**REMINDER: THIS IS A TEST RUN, AND ANY RESULTS ARE NOT COMPLETE!**")
-
-
+    print("**REMINDER: THIS IS A TEST RUN, AND ANY RESULTS ARE NOT COMPLETE!**\n")
