@@ -1,8 +1,8 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 0.0.7.
-* *Released*: 2025/12/15
+* *Version*: 0.0.8.
+* *Released*: 2026/01/20
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
@@ -48,8 +48,8 @@ This script will return ten outputs:
 6. ***date*_*institution*_all-datasets-combined.csv**: a dataframe with an entry for each dataset after re-aggregating all files and their metadata.
 7. ***date*_*institution*_all-datasets-combined-with-dataverses.csv**: a dataframe with an entry for each dataset after re-aggregating all files and their metadata, joined with the _all-dataverses.csv dataframe. Unnested datasets (i.e. those at the highest level within an institution's dataverse) are listed with standardized unique entries in all dataverse-level fields (e.g., '0' for all numerical ID fields).
 8. ***date*_*institution*_all-authors.csv**: a dataframe with an entry for each author associated with at least one dataset. Authors are only deduplicated on a combination of DOI, name, affiliation, and current version state of the dataset, so many authors will have multiple entries.
-9. ***date*_*institution*_unique-format-summary.csv**: a dataframe with a summary of the number of unique datasets in which each file format occurs.
-10. ***date*_*institution*_annual-size-summary.csv**: a dataframe with a summary of the total file size of files created in a given year. Which date is used (e.g., 'publication date' versus 'creation date' could be modified).
+9. ***date*_*institution*_SUMMARY-unique-format.csv**: a dataframe with a summary of the number of unique datasets in which each file format occurs.
+10. ***date*_*institution*_SUMMARY-annual-size.csv**: a dataframe with a summary of the total file size of files created in a given year. Which date is used (e.g., 'publication date' versus 'creation date' could be modified).
 
 If you enable the toggle to omit unpublished datasets, files 5-10 will be exported with a "-*PUBLISHED*" suffix appended to them; otherwise, they will be exported with a "-*ALL*" suffix.
 
