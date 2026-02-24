@@ -401,6 +401,14 @@ def is_us_federal_holiday(date_str):
         return dt in us_holidays
     except Exception:
         return False
+# Checks whether date is within prescribed ranges
+def is_in_break(date, ranges):
+    for start, end in ranges:
+        start_dt = pd.to_datetime(start)
+        end_dt = pd.to_datetime(end)
+        if start_dt <= date <= end_dt:
+            return True
+    return False
 
 # Return only the highest value for the version number in a Dataverse retrieval
 def extract_max_version(val):
@@ -525,6 +533,8 @@ def assign_size_bins(df, column='file_size', new_column='file_size_bin'):
 
     return df
 
+
+
 ## Sensitive data screening
    
 def flag_sensitive_terms(df, terms, columns):
@@ -558,13 +568,13 @@ def flag_sensitive_terms(df, terms, columns):
         flags_list.append(flags)
         sources_list.append(sources)
 
-    df['flags'] = flags_list
-    df['source'] = sources_list
+    df['metadata_flags'] = flags_list
+    df['metadata_source'] = sources_list
     return df
 
 def filter_sensitive_datasets(df):
     # Criterion 1: flags is not empty
-    flagged = df['flags'].str.strip() != ''
+    flagged = df['metadata_flags'].str.strip() != ''
     
     # Criterion 2: Restricted is True or contains 'True' (in a 'True;False' string)
     restricted = (
@@ -588,7 +598,7 @@ def add_final_source_column(df):
     for idx, row in df.iterrows():
         sources = []
         # Criterion 1: flagged
-        if row.get('flags', '').strip() != '':
+        if row.get('metadata_flags', '').strip() != '':
             sources.append('metadata')
         # Criterion 2: restricted
         restricted_val = row.get('restricted', '')
@@ -604,7 +614,7 @@ def add_final_source_column(df):
             sources.append('license')
         final_sources.append('; '.join(sources))
 
-    df['final_source'] = final_sources
+    df['flags_source'] = final_sources
     return df
 
 ### Logging functions ###

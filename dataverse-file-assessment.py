@@ -5,7 +5,7 @@ import requests
 import time
 from datetime import datetime
 from rapidfuzz import process, fuzz
-from utils import adjust_descriptive_count_title, adjust_descriptive_count_description, add_final_source_column, analyze_keywords, assign_size_bins, count_words, extract_max_version, filter_sensitive_datasets, flag_sensitive_terms, get_day_of_week, is_us_federal_holiday, is_valid_orcid, is_valid_ror, retrieve_all_institutions
+from utils import adjust_descriptive_count_title, adjust_descriptive_count_description, add_final_source_column, analyze_keywords, assign_size_bins, count_words, extract_max_version, filter_sensitive_datasets, flag_sensitive_terms, get_day_of_week, is_in_break, is_us_federal_holiday, is_valid_orcid, is_valid_ror, retrieve_all_institutions
 
 #### Toggles
 #toggle for test environment (incomplete run, faster to complete)
@@ -16,6 +16,7 @@ only_my_institution = True
 versions_API = False
 #toggle for excluding unpublished
 exclude_drafts = True
+##this will change the query filter used in the Search API call for datasets
 if exclude_drafts:
     status = 'publicationStatus:Published'
 else:
@@ -44,10 +45,10 @@ if only_my_institution:
 else:
     institution_filename = 'all-institutions'
 ##read in short-hand version of your institution's name
-my_institution_shortName = config['INSTITUTION']['myInstitution']
+my_institution_short_name = config['INSTITUTION']['myInstitution']
 
 print(f'String to add to filenames: {my_institution_filename}.\n')
-print(f'Short hand version of institution name: {my_institution_shortName}.\n')
+print(f'Short hand version of institution name: {my_institution_short_name}.\n')
 
 words = config['WORDS']
 compressed = config['COMPRESSED_FORMATS']
@@ -89,18 +90,18 @@ url_tdr = 'https://dataverse.tdl.org/api/search/'
 ##set API-specific params
 ###Dataverse
 if test and only_my_institution:
-    page_limit_dataverse = config['VARIABLES']['PAGE_LIMITS']['tdr_test'] 
+    page_limit_dataset = config['VARIABLES']['PAGE_LIMITS']['tdr_test'] 
 elif test and not only_my_institution: 
-    page_limit_dataverse = config['VARIABLES']['PAGE_LIMITS']['tdr_test'] // 2 #halve page size if retrieving all institutions
+    page_limit_dataset = config['VARIABLES']['PAGE_LIMITS']['tdr_test'] // 2 #halve page size if retrieving all institutions
 elif not test:
-    page_limit_dataverse = config['VARIABLES']['PAGE_LIMITS']['tdr_prod']
-page_size = config['VARIABLES']['PAGE_SIZES']['dataverse_test'] if test else config['VARIABLES']['PAGE_SIZES']['dataverse_prod']
+    page_limit_dataset = config['VARIABLES']['PAGE_LIMITS']['tdr_prod']
+page_size_dataset = config['VARIABLES']['PAGE_SIZES']['dataverse_test'] if test else config['VARIABLES']['PAGE_SIZES']['dataverse_prod']
 
-print(f'Retrieving {page_size} records per page over {page_limit_dataverse} pages.')
+print(f'Retrieving {page_size_dataset} records per page over {page_limit_dataset} pages.')
 
 query = '*'
-page_start_dataverse = config['VARIABLES']['PAGE_STARTS']['dataverse']
-page_increment = config['VARIABLES']['PAGE_INCREMENTS']['dataverse']
+page_start_dataset = config['VARIABLES']['PAGE_STARTS']['dataverse']
+page_increment_dataset = config['VARIABLES']['PAGE_INCREMENTS']['dataverse']
 k = 0
 
 headers_tdr = {
@@ -112,9 +113,9 @@ params_tdr_ut_austin = {
     'fq': status,
     'subtree': 'utexas',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_baylor = {
@@ -122,9 +123,9 @@ params_tdr_baylor = {
     'fq': status,
     'subtree': 'baylor',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_smu = {
@@ -132,9 +133,9 @@ params_tdr_smu = {
     'fq': status,
     'subtree': 'smu',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_tamu = {
@@ -142,9 +143,9 @@ params_tdr_tamu = {
     'fq': status,
     'subtree': 'tamu',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_txst = {
@@ -152,9 +153,9 @@ params_tdr_txst = {
     'fq': status,
     'subtree': 'txst',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_ttu = {
@@ -162,9 +163,9 @@ params_tdr_ttu = {
     'fq': status,
     'subtree': 'ttu',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_houston = {
@@ -172,9 +173,9 @@ params_tdr_houston = {
     'fq': status,
     'subtree': 'uh',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_hscfw = {
@@ -182,9 +183,9 @@ params_tdr_hscfw = {
     'fq': status,
     'subtree': 'unthsc',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_tamug = {
@@ -192,36 +193,36 @@ params_tdr_tamug = {
     'fq': status,
     'subtree': 'tamug',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 params_tdr_tamui = {
     'q': query,
     'fq': status,
     'subtree': 'tamiu',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 params_tdr_utsah = {
     'q': query,
     'fq': status,
     'subtree': 'uthscsa',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 params_tdr_utswm = {
     'q': query,
     'fq': status,
     'subtree': 'utswmed',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_uta = {
@@ -229,9 +230,9 @@ params_tdr_uta = {
     'fq': status,
     'subtree': 'uta',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
 params_tdr_twu = {
@@ -239,12 +240,12 @@ params_tdr_twu = {
     'fq': status,
     'subtree': 'twu',
     'type': 'dataset',
-    'start': page_start_dataverse,
-    'page': page_increment,
-    'per_page': page_limit_dataverse
+    'start': page_start_dataset,
+    'page': page_increment_dataset,
+    'per_page': page_limit_dataset
 }
 
-all_params = {
+all_params_datasets = {
         'UT Austin': params_tdr_ut_austin,
         'Baylor': params_tdr_baylor,
         'SMU': params_tdr_smu,
@@ -269,14 +270,14 @@ tamu_combined_params = {
 
 #substitute for your institution
 if only_my_institution:
-    if my_institution_shortName == 'TAMU':
+    if my_institution_short_name == 'TAMU':
         params_list = tamu_combined_params
     else:
         params_list = {
-            my_institution_shortName: all_params[my_institution_shortName]
+            my_institution_short_name: all_params_datasets[my_institution_short_name]
         }
 else:
-    params_list = all_params
+    params_list = all_params_datasets
 
 file_path = f'{script_directory}/tdr-affiliation-ror-matching.csv'
 
@@ -287,7 +288,7 @@ else:
     print(f'"{file_path}" does not exist. DataFrame not loaded.')
 
 print('Starting TDR retrieval.\n')
-all_data = retrieve_all_institutions(url_tdr, params_list, headers_tdr, page_start_dataverse, page_size, page_limit_dataverse)
+all_data = retrieve_all_institutions(url_tdr, params_list, headers_tdr, page_start_dataset, page_size_dataset, page_limit_dataset)
 
 print('Starting TDR filtering.\n')
 data_select_tdr = []
@@ -382,8 +383,8 @@ filtered_tdr_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-de
 #create df of published datasets with draft version (retains both entries)
 commonColumns = ['doi', 'dataset_title']
 duplicates = filtered_tdr.duplicated(subset=commonColumns, keep=False)
-dualStatusDatasets = filtered_tdr[duplicates]
-dualStatusDatasets.to_csv(f'outputs/{today}_{institution_filename}_dual-status-datasets.csv', index=False)
+dual_status_datasets = filtered_tdr[duplicates]
+dual_status_datasets.to_csv(f'outputs/{today}_{institution_filename}_dual-status-datasets.csv', index=False)
 
 #retrieving additional metadata for deposits by individual API call (one per DOI)
 ##retrieves both published and never-published draft datasets; if a published dataset is currently in DRAFT state, it will return the information for the DRAFT state
@@ -402,7 +403,6 @@ for doi in filtered_tdr_deduplicated['doi']:
             print(f'Retrieving {doi}\n')
             results.append(response.json())
         else:
-            # Non-timeout errors (like 404 or 500) go straight to permanent failures
             final_timeouts.append({"doi": doi, "reason": f"Status {response.status_code}"})
             
     except requests.exceptions.Timeout:
@@ -412,7 +412,6 @@ for doi in filtered_tdr_deduplicated['doi']:
 
 if initial_timeouts:
     print(f"\n--- Retrying {len(initial_timeouts)} timeouts with 10s limit ---\n")
-    # Small pause to let the server recover
     time.sleep(2) 
     
     for doi in initial_timeouts:
@@ -428,7 +427,6 @@ if initial_timeouts:
             else:
                 final_timeouts.append({"doi": doi, "reason": f"Retry Status {response.status_code}"})
         except Exception as e:
-            # If it fails again, it's officially a permanent failure
             final_timeouts.append({"doi": doi, "reason": "Persistent Timeout/Error"})
 
 data_tdr_native = {
@@ -954,13 +952,6 @@ break_ranges = [ #Sunday to Saturday of a given week for full-week holidays
     # Add more as needed
 ]
 df_all_files_concat_deduplicated['publication_date'] = pd.to_datetime(df_all_files_concat_deduplicated['publication_date'])
-def is_in_break(date, ranges):
-    for start, end in ranges:
-        start_dt = pd.to_datetime(start)
-        end_dt = pd.to_datetime(end)
-        if start_dt <= date <= end_dt:
-            return True
-    return False
 
 df_all_files_concat_deduplicated['during_break'] = df_all_files_concat_deduplicated['publication_date'].apply(lambda x: is_in_break(x, break_ranges))
 
@@ -1158,145 +1149,144 @@ else: #concat master file with new list of unique affiliations, drop duplicates 
     df_all_affiliations_dedup_expanded_pruned.to_csv(f'{script_directory}/tdr-affiliation-ror-matching-TEMP.csv', index=False)
 
 #dataverse-level summary
+print('Beginning to define API call parameters.')
+
+##(re)set API-specific params
+page_limit_dataverse = config['VARIABLES']['PAGE_LIMITS']['tdr_test'] if test else config['VARIABLES']['PAGE_LIMITS']['tdr_prod']
+page_size_dataverse = config['VARIABLES']['PAGE_SIZES']['dataverse_test'] if test else config['VARIABLES']['PAGE_SIZES']['dataverse_prod']
+print(f'Retrieving {page_size_dataverse} dataverses per page over {page_limit_dataverse} pages.\n')
+
+###for TDR, affiliation is not reliable for returning all relevant results
+query = '*'
+page_start_dataverse = config['VARIABLES']['PAGE_STARTS']['dataverse']
+page_increment_dataverse = config['VARIABLES']['PAGE_INCREMENTS']['dataverse']
+k = 0
+
 query = '*'
 params_tdr_ut_austin = {
     'q': query,
-    'fq': status,
     'subtree': 'utexas',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_baylor = {
     'q': query,
-    'fq': status,
     'subtree': 'baylor',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_smu = {
     'q': query,
-    'fq': status,
     'subtree': 'smu',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_tamu = {
     'q': query,
-    'fq': status,
     'subtree': 'tamu',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_txst = {
     'q': query,
-    'fq': status,
     'subtree': 'txst',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_ttu = {
     'q': query,
-    'fq': status,
     'subtree': 'ttu',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_houston = {
     'q': query,
-    'fq': status,
     'subtree': 'uh',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_hscfw = {
     'q': query,
-    'fq': status,
     'subtree': 'unthsc',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_tamug = {
     'q': query,
-    'fq': status,
     'subtree': 'tamug',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 params_tdr_tamui = {
     'q': query,
-    'fq': status,
     'subtree': 'tamiu',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 params_tdr_utsah = {
     'q': query,
-    'fq': status,
     'subtree': 'uthscsa',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 params_tdr_utswm = {
     'q': query,
-    'fq': status,
     'subtree': 'utswmed',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_uta = {
     'q': query,
-    'fq': status,
     'subtree': 'uta',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
 params_tdr_twu = {
     'q': query,
-    'fq': status,
     'subtree': 'twu',
     'type': 'dataverse',
     'start': page_start_dataverse,
-    'page': page_increment,
+    'page': page_increment_dataverse,
     'per_page': page_limit_dataverse
 }
 
-all_params = {
+all_params_dataverses = {
         'UT Austin': params_tdr_ut_austin,
         'Baylor': params_tdr_baylor,
         'SMU': params_tdr_smu,
@@ -1321,30 +1311,17 @@ tamu_combined_params = {
 
 #substitute for your institution
 if only_my_institution:
-    if my_institution_shortName == 'TAMU':
+    if my_institution_short_name == 'TAMU':
         params_list = tamu_combined_params
     else:
         params_list = {
-            my_institution_shortName: all_params[my_institution_shortName]
+            my_institution_short_name: all_params_dataverses[my_institution_short_name]
         }
 else:
-    params_list = all_params
-
-print('Beginning to define API call parameters.')
-
-##(re)set API-specific params
-page_limit_dataverse = config['VARIABLES']['PAGE_LIMITS']['tdr_test'] if test else config['VARIABLES']['PAGE_LIMITS']['tdr_prod']
-page_size = config['VARIABLES']['PAGE_SIZES']['dataverse_test'] if test else config['VARIABLES']['PAGE_SIZES']['dataverse_prod']
-print(f'Retrieving {page_size} records per page over {page_limit_dataverse} pages.')
-
-###for TDR, affiliation is not reliable for returning all relevant results; the DOI prefix is used as the most generic common denominator for datasets
-query = '10.18738/T8/'
-page_start_dataverse = config['VARIABLES']['PAGE_STARTS']['dataverse']
-page_increment = config['VARIABLES']['PAGE_INCREMENTS']['dataverse']
-k = 0
+    params_list = all_params_dataverses
 
 print('Starting TDR retrieval.\n')
-all_dataverses = retrieve_all_institutions(url_tdr, params_list, headers_tdr, page_start_dataverse, page_size, page_limit_dataverse)
+all_dataverses = retrieve_all_institutions(url_tdr, params_list, headers_tdr, page_start_dataverse, page_size_dataverse, page_limit_dataverse)
 
 print('Starting TDR filtering.\n')
 dataverses_select_tdr = []
@@ -1533,7 +1510,7 @@ dataverse_dataset_merged = pd.merge(
         right_on='dataverse_name',
         how='left'
     )
-dataverse_dataset_merged = dataverse_dataset_merged.fillna({'dataverse_name': 'Default institutional dataverse', 'parent_dataverse_name': 'None', 'parent_dataverse_id': 0, 'dataverse_contact': 'None', 'owner': 0, 'id': 0, 'dataset_dois': 'Not applicable'})
+dataverse_dataset_merged = dataverse_dataset_merged.fillna({'dataverse_name': 'Default institutional dataverse', 'parent_dataverse_name': 'None', 'parent_dataverse_id': 'None', 'dataverse_contact': 'None', 'owner': -999, 'id': -999, 'dataset_dois': 'Not applicable'})
 if exclude_drafts:  
     dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-with-dataverses-PUBLISHED.csv', index=False)
 else:
@@ -1557,24 +1534,20 @@ if sensitive_screen:
     columns_to_scan = ['dataset_title', 'dataverse', 'description', 'notes', 'keywords']
     # using incomplete terms in some cases to handle variation (e.g., sensitiv for sensitivity vs. sensitive)
     sensitive_terms = [
-        'transcript', 'survey', 'interview', 'video', 'recording', 'photograph', 'demographic', 'clinical', 'medical', 
-        'trial', 'human', 'people', 'participant', 'patient', 'student', 'children', 'youth', 'famil', 'household', 'indigenous', 
-        'tribal', 'ethnic', 'racial', 'race', 'gender', 'sensitiv', 'deidentified', 'de-identified', 
-        'anonymized', 'masked', 'obfuscated', 'redacted', 'codebook', 'qualtrics', 'redcap', 'nvivo'
+        'transcript', 'survey', 'interview', 'video', 'recording', 'photograph', 'demographic', 'clinical', 'medical', 'trial', 'human', 'people', 'participant', 'patient', 'student', 'children', 'youth', 'famil', 'household', 'indigenous', 'tribal', 'ethnic', 'racial', 'race', 'gender', 'sensitiv', 'deidentified', 'de-identified', 'anonymized', 'masked', 'obfuscated', 'redacted', 'codebook', 'qualtrics', 'redcap', 'nvivo'
     ]
 
     df_flagged = flag_sensitive_terms(dataverse_dataset_merged, sensitive_terms, columns_to_scan)
     df_sensitive = filter_sensitive_datasets(df_flagged)
     df_final = add_final_source_column(df_sensitive)
-    df_final_filtered = df_final[df_final['final_source'].str.strip() != '']
+    df_final_filtered = df_final[df_final['flags_source'].str.strip() != '']
     df_final_filtered = df_final_filtered.drop_duplicates(subset=['doi'], keep='first')
-    df_final_filtered = df_final_filtered[['institution', 'dataverse', 'doi', 'dataset_title', 'dataset_id', 'description', 'notes', 'keywords', 'dataset_contact', 'dataset_email', 'creation_date', 'publication_date', 'original_mime_type', 'original_friendly_type', 'restricted', 'license', 'flags', 'source', 'final_source']]
+    df_final_filtered = df_final_filtered[['institution', 'dataverse', 'doi', 'dataset_title', 'dataset_id', 'description', 'notes', 'keywords', 'dataset_contact', 'dataset_email', 'creation_date', 'publication_date', 'original_mime_type', 'original_friendly_type', 'restricted', 'license', 'metadata_flags', 'metadata_source', 'flags_source']]
 
     df_final_filtered.to_csv(f'outputs/{today}_{institution_filename}_sensitive-data-flagged.csv', index=False)
 
     print(f'Number of flagged datasets: {len(df_final_filtered)} out of {len(dataverse_dataset_merged)} total datasets.\n')
 
-# print('Done.\n')
 if master_ror_matching is not None:
     print(f'Number of new affiliations to check: {len(df_all_affiliations_dedup_expanded_pruned) - len(master_ror_matching)}.\n')
 print(f'Done\n---Time to run: {datetime.now() - start_time}---\n')
