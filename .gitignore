@@ -2,6 +2,7 @@
 config.json
 test/
 libs/
+inputs/
 outputs/
 plots/
 script-archive/
