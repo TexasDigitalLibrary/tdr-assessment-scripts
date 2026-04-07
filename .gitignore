@@ -6,6 +6,8 @@ inputs/
 outputs/
 plots/
 script-archive/
+graphs-etc.py
+sensitive-data-screen.py
 TDR-regression-modeling.py
 dataverse-apis-information-comparison.png
 tdr-affiliation-ror-*

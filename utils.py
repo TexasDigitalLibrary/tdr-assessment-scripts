@@ -130,6 +130,7 @@ def retrieve_dataverse(url, params, headers, page_start, per_page, page_limit=No
     all_data_dataverse = []
     params = params.copy()
     current_page = 0
+    adjusted_page = current_page + 1
     params['start'] = page_start
     params['per_page'] = per_page
 
@@ -137,7 +138,8 @@ def retrieve_dataverse(url, params, headers, page_start, per_page, page_limit=No
         data = retrieve_page_dataverse(url, params, headers)
         total_count = data['data']['total_count']
         total_pages = math.ceil(total_count / per_page) if per_page else 1
-        print(f'Retrieving page {current_page} of {total_pages} pages...\n')
+        adjusted_pages = total_pages + 1
+        print(f'Retrieving page {adjusted_page} of {adjusted_pages} pages...\n')
 
         if not data['data']:
             print('No data found.')
@@ -150,10 +152,10 @@ def retrieve_dataverse(url, params, headers, page_start, per_page, page_limit=No
         params['start'] += per_page
 
         if params['start'] >= total_count:
-            print('End of response.')
+            print('End of response.\n')
             break
         if page_limit and current_page >= page_limit:
-            print('Reached page limit.')
+            print('Reached page limit.\n')
             break
 
     return all_data_dataverse

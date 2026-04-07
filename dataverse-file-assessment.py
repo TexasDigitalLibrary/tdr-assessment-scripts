@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import pandas as pd
@@ -5,13 +6,13 @@ import requests
 import time
 from datetime import datetime
 from rapidfuzz import process, fuzz
-from utils import adjust_descriptive_count_title, adjust_descriptive_count_description, add_final_source_column, analyze_keywords, assign_size_bins, count_words, extract_max_version, filter_sensitive_datasets, flag_sensitive_terms, get_day_of_week, is_in_break, is_us_federal_holiday, is_valid_orcid, is_valid_ror, retrieve_all_institutions
+from utils import adjust_descriptive_count_title, adjust_descriptive_count_description, analyze_keywords, assign_size_bins, count_words, extract_max_version, get_day_of_week, is_in_break, is_us_federal_holiday, is_valid_orcid, is_valid_ror, retrieve_all_institutions
 
 #### Toggles
 #toggle for test environment (incomplete run, faster to complete)
 test = False
 #toggle to only look at your/one institution in TDR
-only_my_institution = True 
+only_my_institution = False 
 #toggle for stage 3 retrieval
 versions_API = False
 #toggle for excluding unpublished
@@ -23,8 +24,8 @@ else:
     status = ''
 #toggle to pull in biweekly DV report for institution
 biweekly_report = False
-#toggle to run sensitive data screening
-sensitive_screen = True
+#toggle to split results by institution (IN DEVELOPMENT)
+split_institution_output = False
 
 #setting timestamp at start of script to calculate run time
 start_time = datetime.now() 
@@ -61,28 +62,43 @@ if biweekly_report:
     tdr_users = pd.read_excel(file_path, sheet_name=sheet_name)
 
 #getting script directory
-script_directory = os.getcwd()
-print(f'The script directory is {script_directory}.\n')
+script_dir = os.getcwd()
+print(f'The script directory is {script_dir}.\n')
 
 #creating directories
 if test:
     if os.path.isdir('test'):
-        print('test directory found - no need to recreate')
+        print('test directory found - no need to recreate\n')
     else:
         os.mkdir('test')
-        print('test directory has been created')
+        print('test directory has been created\n')
+    test_dir = os.path.join(script_dir, 'test')
     os.chdir('test')
     if os.path.isdir('outputs'):
-        print('test outputs directory found - no need to recreate')
+        print('test outputs directory found - no need to recreate\n')
     else:
         os.mkdir('outputs')
-        print('test outputs directory has been created')
+        print('test outputs directory has been created\n')
+    outputs_dir = os.path.join(test_dir, 'outputs')
+    if os.path.isdir('logs'):
+        print('test logs directory found - no need to recreate\n')
+    else:
+        os.mkdir('logs')
+        print('test logs directory has been created\n')
+    logs_dir = os.path.join(test_dir, 'logs')
 else:
     if os.path.isdir('outputs'):
-        print('outputs directory found - no need to recreate')
+        print('outputs directory found - no need to recreate\n')
     else:
         os.mkdir('outputs')
-        print('outputs directory has been created')
+        print('outputs directory has been created\n')
+    outputs_dir = os.path.join(script_dir, 'outputs')
+    if os.path.isdir('logs'):
+        print('logs directory found - no need to recreate\n')
+    else:
+        os.mkdir('logs')
+        print('logs directory has been created\n')
+    logs_dir = os.path.join(script_dir, 'logs')
 
 print('Beginning to define API call parameters.')
 url_tdr = 'https://dataverse.tdl.org/api/search/'
@@ -279,7 +295,7 @@ if only_my_institution:
 else:
     params_list = all_params_datasets
 
-file_path = f'{script_directory}/tdr-affiliation-ror-matching.csv'
+file_path = f'{script_dir}/affiliation-map-primary.csv'
 
 if os.path.exists(file_path):
     master_ror_matching = pd.read_csv(file_path)
@@ -378,13 +394,13 @@ filtered_tdr['title_extra_space'] = (filtered_tdr['dataset_title'].str.endswith(
 filtered_tdr = filtered_tdr.sort_values(by='status', ascending=False)
 filtered_tdr.to_csv(f'outputs/{today}_{institution_filename}_all-deposits.csv')
 filtered_tdr_deduplicated = filtered_tdr.drop_duplicates(subset=['doi'], keep='first')
-filtered_tdr_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-deposits-deduplicated.csv', index=False)
+filtered_tdr_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-deposits-deduplicated.csv', index=False, encoding='utf-8-sig')
 
 #create df of published datasets with draft version (retains both entries)
 commonColumns = ['doi', 'dataset_title']
 duplicates = filtered_tdr.duplicated(subset=commonColumns, keep=False)
 dual_status_datasets = filtered_tdr[duplicates]
-dual_status_datasets.to_csv(f'outputs/{today}_{institution_filename}_dual-status-datasets.csv', index=False)
+dual_status_datasets.to_csv(f'outputs/{today}_{institution_filename}_dual-status-datasets.csv', index=False, encoding='utf-8-sig')
 
 #retrieving additional metadata for deposits by individual API call (one per DOI)
 ##retrieves both published and never-published draft datasets; if a published dataset is currently in DRAFT state, it will return the information for the DRAFT state
@@ -394,7 +410,8 @@ url_tdr_native = 'https://dataverse.tdl.org/api/datasets/'
 print(f'Total datasets to be analyzed: {len(filtered_tdr_deduplicated)}.\n')
 
 results = []
-initial_timeouts = []
+first_timeouts = []
+second_timeouts = []
 final_timeouts = []
 for doi in filtered_tdr_deduplicated['doi']:
     try:
@@ -404,25 +421,35 @@ for doi in filtered_tdr_deduplicated['doi']:
             results.append(response.json())
         else:
             final_timeouts.append({"doi": doi, "reason": f"Status {response.status_code}"})
-            
     except requests.exceptions.Timeout:
-        initial_timeouts.append(doi)
+        first_timeouts.append(doi)
     except requests.exceptions.RequestException as e:
         final_timeouts.append({"doi": doi, "reason": str(e)})
 
-if initial_timeouts:
-    print(f"\n--- Retrying {len(initial_timeouts)} timeouts with 10s limit ---\n")
+if first_timeouts:
+    print(f"\n--- Retrying {len(first_timeouts)} timeouts with 5s limit ---\n")
     time.sleep(2) 
-    
-    for doi in initial_timeouts:
+    for doi in first_timeouts:
         try:
-            response = requests.get(
-                f'{url_tdr_native}:persistentId/?persistentId=doi:{doi}', 
-                headers=headers_tdr, 
-                timeout=10 
-            )
+            response = requests.get(f'{url_tdr_native}:persistentId/?persistentId=doi:{doi}', headers=headers_tdr, timeout=5)
             if response.status_code == 200:
                 print(f'Retrying {doi}\n')
+                results.append(response.json())
+            else:
+                final_timeouts.append({"doi": doi, "reason": f"Status {response.status_code}"})
+        except requests.exceptions.Timeout:
+            second_timeouts.append(doi)
+        except requests.exceptions.RequestException as e:
+            second_timeouts.append({"doi": doi, "reason": str(e)})
+
+if second_timeouts:
+    print(f"\n--- Retrying {len(first_timeouts)} repeat timeouts with 10s limit ---\n")
+    time.sleep(2) 
+    for doi in first_timeouts:
+        try:
+            response = requests.get(f'{url_tdr_native}:persistentId/?persistentId=doi:{doi}', headers=headers_tdr, timeout=10)
+            if response.status_code == 200:
+                print(f'Retrying {doi} again\n')
                 results.append(response.json())
             else:
                 final_timeouts.append({"doi": doi, "reason": f"Retry Status {response.status_code}"})
@@ -433,10 +460,16 @@ data_tdr_native = {
     'datasets': results
 }
 
-print(f"INITIALLY FAILED: {len(initial_timeouts)}\n")
+print(f"INITIALLY FAILED: {len(first_timeouts)}\n")
 print(f"TOTAL FAILED: {len(final_timeouts)}\n")
 if len(final_timeouts) > 0:
     print(final_timeouts)
+
+## Saving failed retrievals
+with open(f'{logs_dir}/{today}_failed-retrievals.csv', 'w', newline='', encoding='utf-8') as f:
+    writer = csv.writer(f)
+    writer.writerow(['DOI', 'Error Message'])
+    writer.writerows(final_timeouts)
 
 print('Beginning dataframe subsetting\n')
 data_select_tdr_native = [] 
@@ -649,7 +682,7 @@ df_select_concatenated_exist = df_select_concatenated.dropna(subset=['dataset_id
 
 df_select_concatenated_exist['dataset_id'] = df_select_concatenated_exist['dataset_id'].astype(int)
 # As of 2025/12/05, temporarily coding out this CSV output
-# df_select_concatenated_exist.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-deduplicated_expanded-metadata.csv', index=False)
+# df_select_concatenated_exist.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-deduplicated_expanded-metadata.csv', index=False, encoding='utf-8-sig')
 
 #subset to datasets that are less than version 2.0 (no major update, no file additions)
 df_select_concatenated_exist_majorVersion = df_select_concatenated_exist[df_select_concatenated_exist['major_version'] > 1]
@@ -931,9 +964,9 @@ df_all_files_concat_deduplicated['extension_minimum'] = df_all_files_concat_dedu
 df_all_files_concat_deduplicated['extension_maximum'] = df_all_files_concat_deduplicated['filename'].str.extract(r'(\..*)')
 
 if exclude_drafts:
-    df_all_files_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-files-deduplicated-PUBLISHED.csv', index=False)
+    df_all_files_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-files-deduplicated-PUBLISHED.csv', index=False, encoding='utf-8-sig')
 else:
-    df_all_files_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-files-deduplicated-ALL.csv', index=False)
+    df_all_files_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-files-deduplicated-ALL.csv', index=False, encoding='utf-8-sig')
 
 #date modifications
 df_all_files_concat_deduplicated['publication_day'] = df_all_files_concat_deduplicated['publication_date'].apply(get_day_of_week)
@@ -989,9 +1022,19 @@ tdr_all_datasets_deduplicated_pruned['total_version'] = tdr_all_datasets_dedupli
 tdr_all_datasets_deduplicated_pruned = assign_size_bins(tdr_all_datasets_deduplicated_pruned, column='dataset_size', new_column='dataset_size_bin')
 
 if exclude_drafts:
-    tdr_all_datasets_deduplicated_pruned.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-PUBLISHED.csv', index=False)
+    tdr_all_datasets_deduplicated_pruned.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-PUBLISHED.csv', index=False, encoding='utf-8-sig')
 else:
-    tdr_all_datasets_deduplicated_pruned.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-ALL.csv', index=False)
+    tdr_all_datasets_deduplicated_pruned.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-ALL.csv', index=False, encoding='utf-8-sig')
+
+if split_institution_output and not only_my_institution:
+    column = 'institution'
+    output_dir = 'by-institution'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    for unique_value, df in tdr_all_datasets_deduplicated_pruned.groupby(column):
+        filename = f"{output_dir}/{unique_value.replace(' ', '_')}_datasets-combined-PUBLISHED.csv"
+        df.to_csv(filename, index=False, encoding='utf-8-sig')
+        print(f"Saved {filename}")
 
 ##creating flagged dataset list
 if biweekly_report:
@@ -999,13 +1042,13 @@ if biweekly_report:
         tdr_all_datasets_deduplicated_pruned['missing_orcid'] = (tdr_all_datasets_deduplicated_pruned['missing_orcid'].astype(str).str.upper() == "TRUE")
         tdr_all_datasets_deduplicated_pruned['missing_ror'] = (tdr_all_datasets_deduplicated_pruned['missing_ror'].astype(str).str.upper() == "TRUE")
         flagged_datasets = tdr_all_datasets_deduplicated_pruned[tdr_all_datasets_deduplicated_pruned['missing_orcid'] |tdr_all_datasets_deduplicated_pruned['missing_ror']]
-        flagged_datasets.to_csv(f'outputs/{today}_{institution_filename}_flagged-datasets-PUBLISHED.csv', index=False)
+        flagged_datasets.to_csv(f'outputs/{today}_{institution_filename}_flagged-datasets-PUBLISHED.csv', index=False, encoding='utf-8-sig')
         flagged_datasets['dataset_email'] = flagged_datasets['dataset_email'].str.split('; ')
         flagged_contacts = flagged_datasets.explode('dataset_email')
-        flagged_contacts.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED.csv', index=False)
+        flagged_contacts.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED.csv', index=False, encoding='utf-8-sig')
         flagged_contacts_dedup = flagged_contacts.drop_duplicates(subset=['dataset_email'], keep='first')
         flagged_contacts_dedup = flagged_contacts_dedup[['dataset_id', 'dataset_contact', 'dataset_email', 'dataset_depositor', 'doi', 'dataset_title']]
-        flagged_contacts_dedup.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED-dedup.csv', index=False)
+        flagged_contacts_dedup.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED-dedup.csv', index=False, encoding='utf-8-sig')
         flagged_contacts_identified = pd.merge(
             flagged_contacts_dedup,
             tdr_users,
@@ -1013,11 +1056,11 @@ if biweekly_report:
             right_on='email',
             how='left'
         )
-        flagged_contacts_identified.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED-dedup-identified.csv', index=False)
+        flagged_contacts_identified.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED-dedup-identified.csv', index=False, encoding='utf-8-sig')
 
     else:
         flagged_datasets = tdr_all_datasets_deduplicated_pruned[(tdr_all_datasets_deduplicated_pruned['missing_orcid'] == True) | (tdr_all_datasets_deduplicated_pruned['missing_ror'] == True)]
-        flagged_datasets.to_csv(f'outputs/{today}_{institution_filename}_flagged-datasets-ALL.csv', index=False)
+        flagged_datasets.to_csv(f'outputs/{today}_{institution_filename}_flagged-datasets-ALL.csv', index=False, encoding='utf-8-sig')
 
 #size summary
 size_by_year = df_all_files_concat_deduplicated.groupby('creation_year')['file_size'].sum().reset_index()
@@ -1025,9 +1068,9 @@ size_by_year['fileGB'] = size_by_year['file_size'] / 1000000000
 # print('Annual size summary')
 # print(size_by_year)
 if exclude_drafts:
-    size_by_year.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-annual-size-PUBLISHED.csv', index=False)
+    size_by_year.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-annual-size-PUBLISHED.csv', index=False, encoding='utf-8-sig')
 else:
-    size_by_year.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-annual-size-ALL.csv', index=False)
+    size_by_year.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-annual-size-ALL.csv', index=False, encoding='utf-8-sig')
 
 #file format summary
 ##can substitute 'friendly_type' for 'original_mime_type' but will get some aggregating into 'unknown'
@@ -1035,9 +1078,9 @@ unique_datasets_per_format = df_all_files_concat_deduplicated.groupby('friendly_
 # print('Total file format summary')
 # print(unique_datasets_per_format)
 if exclude_drafts:
-    unique_datasets_per_format.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-unique-format-PUBLISHED.csv', index=False)
+    unique_datasets_per_format.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-unique-format-PUBLISHED.csv', index=False, encoding='utf-8-sig')
 else:
-    unique_datasets_per_format.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-unique-format-ALL.csv', index=False)
+    unique_datasets_per_format.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-unique-format-ALL.csv', index=False, encoding='utf-8-sig')
 
 #author assessment
 ##fuzzy matching author names
@@ -1125,10 +1168,10 @@ df_all_authors_concat_deduplicated.loc[:, 'malformed_name'] = (
 
 if exclude_drafts:
     df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.sort_values(by='author_name')
-    df_all_authors_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-authors-PUBLISHED.csv', index=False)
+    df_all_authors_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-authors-PUBLISHED.csv', index=False, encoding='utf-8-sig')
 else:
     df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.sort_values(by='author_name')
-    df_all_authors_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-authors-ALL.csv', index=False)
+    df_all_authors_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-authors-ALL.csv', index=False, encoding='utf-8-sig')
 
 df_all_affiliations_dedup = df_all_authors_concat_deduplicated.drop_duplicates(subset=['author_affiliation'], keep='first')
 df_all_affiliations_dedup = df_all_affiliations_dedup.rename(columns={'author_affiliation': 'affiliation'})
@@ -1136,7 +1179,7 @@ df_all_affiliations_dedup = df_all_affiliations_dedup.rename(columns={'author_af
 if master_ror_matching is None: #create master file if it doesn't exist yet
     print('No existing master file found, creating new one.\n')
     print(f'Total unique affiliations: {len(df_all_affiliations_dedup) - 1}\n')
-    df_all_affiliations_dedup.to_csv(f'{script_directory}/tdr-affiliation-ror-matching.csv', index=False)
+    df_all_affiliations_dedup.to_csv(f'{script_dir}/affiliation-map-primary.csv', index=False, encoding='utf-8-sig')
 else: #concat master file with new list of unique affiliations, drop duplicates (keep first will retain existing matches)
     print('Found existing master file, adding and deduplicating.\n')
     df_all_affiliations_dedup_expanded = pd.concat([master_ror_matching, df_all_affiliations_dedup])
@@ -1146,7 +1189,7 @@ else: #concat master file with new list of unique affiliations, drop duplicates 
     df_all_affiliations_dedup_expanded_pruned = df_all_affiliations_dedup_expanded_pruned[['affiliation', 'ror', 'flag-generic']]
     ##remove blanks
     df_all_affiliations_dedup_expanded_pruned = df_all_affiliations_dedup_expanded_pruned.dropna(subset=['affiliation'])
-    df_all_affiliations_dedup_expanded_pruned.to_csv(f'{script_directory}/tdr-affiliation-ror-matching-TEMP.csv', index=False)
+    df_all_affiliations_dedup_expanded_pruned.to_csv(f'{script_dir}/affiliation-map-primary-TEMP.csv', index=False, encoding='utf-8-sig')
 
 #dataverse-level summary
 print('Beginning to define API call parameters.')
@@ -1499,7 +1542,7 @@ df_select_concatenated['num_dataverses'] = num_dataverses
 df_select_concatenated['num_datasets'] = num_datasets
 df_select_concatenated['dataset_dois'] = dataset_dois
 
-df_select_concatenated.to_csv(f'outputs/{today}_{institution_filename}_all-dataverses.csv', index=False)
+df_select_concatenated.to_csv(f'outputs/{today}_{institution_filename}_all-dataverses.csv', index=False, encoding='utf-8-sig')
 df_select_concatenated_pruned = df_select_concatenated[['dataverse_name', 'url', 'identifier', 'parent_dataverse_name', 'parent_dataverse_id', 'id', 'dataverse_contact', 'owner', 'dataset_dois']]
 
 # Combining dataset and dataverse dfs
@@ -1512,9 +1555,9 @@ dataverse_dataset_merged = pd.merge(
     )
 dataverse_dataset_merged = dataverse_dataset_merged.fillna({'dataverse_name': 'Default institutional dataverse', 'parent_dataverse_name': 'None', 'parent_dataverse_id': 'None', 'dataverse_contact': 'None', 'owner': -999, 'id': -999, 'dataset_dois': 'Not applicable'})
 if exclude_drafts:  
-    dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-with-dataverses-PUBLISHED.csv', index=False)
+    dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-with-dataverses-PUBLISHED.csv', index=False, encoding='utf-8-sig')
 else:
-    dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-with-dataverses-ALL.csv', index=False)
+    dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-with-dataverses-ALL.csv', index=False, encoding='utf-8-sig')
 
 ## Combining dataset-dataverse and author dfs
 authors_dataverse_dataset_merged = pd.merge(
@@ -1525,28 +1568,9 @@ authors_dataverse_dataset_merged = pd.merge(
         how='left'
     )
 if exclude_drafts:
-    authors_dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-authors-datasets-dataverses-PUBLISHED.csv', index=False)
+    authors_dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-authors-datasets-dataverses-PUBLISHED.csv', index=False, encoding='utf-8-sig')
 else:
-    authors_dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-authors-datasets-dataverses.csv', index=False)
-
-if sensitive_screen:
- 
-    columns_to_scan = ['dataset_title', 'dataverse', 'description', 'notes', 'keywords']
-    # using incomplete terms in some cases to handle variation (e.g., sensitiv for sensitivity vs. sensitive)
-    sensitive_terms = [
-        'transcript', 'survey', 'interview', 'video', 'recording', 'photograph', 'demographic', 'clinical', 'medical', 'trial', 'human', 'people', 'participant', 'patient', 'student', 'children', 'youth', 'famil', 'household', 'indigenous', 'tribal', 'ethnic', 'racial', 'race', 'gender', 'sensitiv', 'deidentified', 'de-identified', 'anonymized', 'masked', 'obfuscated', 'redacted', 'codebook', 'qualtrics', 'redcap', 'nvivo'
-    ]
-
-    df_flagged = flag_sensitive_terms(dataverse_dataset_merged, sensitive_terms, columns_to_scan)
-    df_sensitive = filter_sensitive_datasets(df_flagged)
-    df_final = add_final_source_column(df_sensitive)
-    df_final_filtered = df_final[df_final['flags_source'].str.strip() != '']
-    df_final_filtered = df_final_filtered.drop_duplicates(subset=['doi'], keep='first')
-    df_final_filtered = df_final_filtered[['institution', 'dataverse', 'doi', 'dataset_title', 'dataset_id', 'description', 'notes', 'keywords', 'dataset_contact', 'dataset_email', 'creation_date', 'publication_date', 'original_mime_type', 'original_friendly_type', 'restricted', 'license', 'metadata_flags', 'metadata_source', 'flags_source']]
-
-    df_final_filtered.to_csv(f'outputs/{today}_{institution_filename}_sensitive-data-flagged.csv', index=False)
-
-    print(f'Number of flagged datasets: {len(df_final_filtered)} out of {len(dataverse_dataset_merged)} total datasets.\n')
+    authors_dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-authors-datasets-dataverses.csv', index=False, encoding='utf-8-sig')
 
 if master_ror_matching is not None:
     print(f'Number of new affiliations to check: {len(df_all_affiliations_dedup_expanded_pruned) - len(master_ror_matching)}.\n')
