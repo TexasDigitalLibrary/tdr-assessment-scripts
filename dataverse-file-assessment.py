@@ -6,7 +6,7 @@ import requests
 import time
 from datetime import datetime
 from rapidfuzz import process, fuzz
-from utils import adjust_descriptive_count_title, adjust_descriptive_count_description, analyze_keywords, assign_size_bins, count_words, extract_max_version, get_day_of_week, is_in_break, is_us_federal_holiday, is_valid_orcid, is_valid_ror, retrieve_all_institutions
+from utils import assign_size_bins, extract_max_version, get_day_of_week, is_in_break, is_us_federal_holiday, is_valid_orcid, is_valid_ror, retrieve_all_institutions
 
 #### Toggles
 #toggle for test environment (incomplete run, faster to complete)
@@ -22,8 +22,6 @@ if exclude_drafts:
     status = 'publicationStatus:Published'
 else:
     status = ''
-#toggle to pull in biweekly DV report for institution
-biweekly_report = False
 #toggle to split results by institution (IN DEVELOPMENT)
 split_institution_output = False
 
@@ -50,16 +48,6 @@ my_institution_short_name = config['INSTITUTION']['myInstitution']
 
 print(f'String to add to filenames: {my_institution_filename}.\n')
 print(f'Short hand version of institution name: {my_institution_short_name}.\n')
-
-words = config['WORDS']
-compressed = config['COMPRESSED_FORMATS']
-
-#read in biweekly report if you want to compare against list of registered users in institutional dataverse (only superusers can get that)
-if biweekly_report:
-    file_path = 'inputs/utexas-dataverse-reports.xlsx'
-    sheet_name = 'users'
-
-    tdr_users = pd.read_excel(file_path, sheet_name=sheet_name)
 
 #getting script directory
 script_dir = os.getcwd()
@@ -298,7 +286,7 @@ else:
 file_path = f'{script_dir}/affiliation-map-primary.csv'
 
 if os.path.exists(file_path):
-    master_ror_matching = pd.read_csv(file_path)
+    ror_map = pd.read_csv(file_path)
     print(f'"{file_path}" exists and has been loaded into a DataFrame.')
 else:
     print(f'"{file_path}" does not exist. DataFrame not loaded.')
@@ -347,48 +335,6 @@ filtered_tdr = df_data_select_tdr[df_data_select_tdr['type'] == 'dataset']
 filtered_tdr['doi'] = filtered_tdr['doi'].str.replace('doi:', '')
 #add column for versioned
 filtered_tdr['versioned'] = filtered_tdr.apply(lambda row: 'Versioned' if (row['major_version'] > 1) or (row['minor_version'] > 0) else 'Not versioned', axis=1)
-
-#metadata assessments
-##title
-##assess 'descriptiveness of dataset title'
-words = config['WORDS']
-###add integers
-numbers = list(map(str, range(1, 1000000)))
-###combine all into a single set
-nondescriptive_words = set(
-    words['articles'] +
-    words['conjunctions'] +
-    words['prepositions'] +
-    words['auxiliary_verbs'] +
-    words['possessives'] +
-    words['descriptors'] +
-    words['order'] +
-    words['version'] +
-    numbers
-)
-
-#assessing title
-filtered_tdr['title_reformatted'] = filtered_tdr['dataset_title'].str.replace('_', ' ') 
-filtered_tdr['title_reformatted'] = filtered_tdr['dataset_title'].str.replace('-', ' ') #gets around text linked by underscores counting as 1 word
-filtered_tdr['title_reformatted'] = filtered_tdr['title_reformatted'].str.lower()
-filtered_tdr[['total_word_count_title', 'descriptive_word_count_title']] = filtered_tdr['title_reformatted'].apply(lambda x: pd.Series(count_words(x, nondescriptive_words)))
-filtered_tdr['descriptive_word_count_title'] = filtered_tdr.apply(adjust_descriptive_count_title, axis=1)
-filtered_tdr['nondescriptive_word_count_title'] = filtered_tdr['total_word_count_title'] - filtered_tdr['descriptive_word_count_title']
-#assessing description
-filtered_tdr[['total_word_count_description', 'descriptive_word_count_description']] = filtered_tdr['description'].apply(lambda x: pd.Series(count_words(x, nondescriptive_words)))
-filtered_tdr['descriptive_word_count_description'] = filtered_tdr.apply(adjust_descriptive_count_description, axis=1)
-filtered_tdr['nondescriptive_word_count_description'] = filtered_tdr['total_word_count_description'] - filtered_tdr['descriptive_word_count_description']
-#assessing keywords
-filtered_tdr['keywords_metrics'] = filtered_tdr['keywords'].apply(lambda kw_list: analyze_keywords(kw_list, nondescriptive_words))
-metrics_df = pd.DataFrame(filtered_tdr['keywords_metrics'].tolist())
-filtered_tdr = pd.concat([filtered_tdr, metrics_df], axis=1)
-filtered_tdr = filtered_tdr.drop(columns=['keywords_metrics'])
-##flagging if insufficient descriptive terms in keywords, title, or description
-filtered_tdr['nondescriptive_metadata'] = ((filtered_tdr['descriptive_word_count_title'] < 5) | (filtered_tdr['descriptive_word_count_description'] < 15) | (filtered_tdr['descriptive_keywords'] < 3))
-##flagging if title ends in period
-filtered_tdr['title_period'] = filtered_tdr['dataset_title'].str.endswith('.')
-##flagging if title has blankspace in front or behind
-filtered_tdr['title_extra_space'] = (filtered_tdr['dataset_title'].str.endswith(' ') | filtered_tdr['dataset_title'].str.startswith(' '))
 
 #sort on status, setting 'DRAFT' at bottom to remove this version for published datasets that are in draft state, retain entry of 'PUBLISHED'
 filtered_tdr = filtered_tdr.sort_values(by='status', ascending=False)
@@ -539,31 +485,12 @@ for item in data_tdr_native['datasets']:
             depositor = field.get('value', '')
         
     #set up counters for author
-    num_authors = 0
-    num_valid_orcid = 0
     num_valid_ror = 0
 
     for field in fields:
         if field['typeName'] == 'author':
             for position, author in enumerate(field.get('value', []), start=1):
-                num_authors += 1  # Count every author
-
-                name = author.get('authorName', {}).get('value', '')
-                affiliation = author.get('authorAffiliation', {}).get('value', '')
-                identifier = author.get('authorIdentifier', {}).get('value', '')
-                scheme = author.get('authorIdentifierScheme', {}).get('value', '')
-                affiliation_expanded = author.get('authorAffiliation', {}).get('expandedvalue', {}).get('termName', '')
-                identifier_expanded = author.get('authorIdentifier', {}).get('expandedvalue', {}).get('@id', '')
-
-                affiliationName = affiliation_expanded if affiliation_expanded else affiliation
-                affiliation_ror = affiliation if affiliation_expanded else None
-
-                # Check ORCID
-                if is_valid_orcid(identifier):
-                    num_valid_orcid += 1
-                # Check ROR 
-                if is_valid_ror(affiliation):
-                    num_valid_ror += 1
+                num_authors += 1
     total_filesize = 0
     unique_content_types = set()
     fileCount = len(files)
@@ -571,8 +498,6 @@ for item in data_tdr_native['datasets']:
     'dataset_id': dataset_id,
     'doi': doi,
     'notes': notes,
-    "missing_orcid": (num_authors - num_valid_orcid) > 0,
-    "missing_ror": (num_authors - num_valid_ror) > 0,
     'dataset_contact': contacts,
     'dataset_email': contact_emails,
     'dataset_depositor': depositor,
@@ -681,8 +606,6 @@ df_select_concatenated = pd.merge(filtered_tdr_deduplicated, df_select_tdr_nativ
 df_select_concatenated_exist = df_select_concatenated.dropna(subset=['dataset_id']).copy() #removes deaccessioned
 
 df_select_concatenated_exist['dataset_id'] = df_select_concatenated_exist['dataset_id'].astype(int)
-# As of 2025/12/05, temporarily coding out this CSV output
-# df_select_concatenated_exist.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-deduplicated_expanded-metadata.csv', index=False, encoding='utf-8-sig')
 
 #subset to datasets that are less than version 2.0 (no major update, no file additions)
 df_select_concatenated_exist_majorVersion = df_select_concatenated_exist[df_select_concatenated_exist['major_version'] > 1]
@@ -770,8 +693,6 @@ if versions_API:
                         'dataset_id': dataset_id,
                         'doi': doi,
                         'notes': notes,
-                        "missing_orcid": (num_authors - num_valid_orcid) > 0,
-                        "missing_ror": (num_authors - num_valid_ror) > 0,
                         'dataset_contact': contacts,
                         'dataset_email': contact_emails,
                         'dataset_depositor': depositor,
@@ -814,8 +735,6 @@ if versions_API:
                 file_entry = {
                     'dataset_id': dataset_id,
                     'doi': doi,
-                    "missing_orcid": (num_authors - num_valid_orcid) > 0,
-                    "missing_ror": (num_authors - num_valid_ror) > 0,
                     'dataset_contact': contacts,
                     'dataset_email': contact_emails,
                     'dataset_depositor': depositor,
@@ -900,12 +819,12 @@ if versions_API:
     df_select_versions_concatenated_released = pd.merge(df_select_tdr_versions_deduplicated, filtered_tdr_deduplicated, on='doi', how='left')
 
     #pruning and renaming columns in the two dataframes that collectively (should) have all of the files (from the Native and the Version endpoints)
-    df_version_pruned = df_select_versions_concatenated_released[['version_id_x', 'dataset_id', 'dataset_contact', 'dataset_email', 'dataset_depositor', 'total_version_x', 'keywords', 'malformatted_keywords', 'total_keywords', 'descriptive_keywords', 'title_period', 'title_extra_space', 'filename', 'file_id', 'original_mime_type', 'original_friendly_type', 'file_size', 'storage_identifier', 'creation_date', 'publication_date', 'institution', 'doi', 'file_size_bin', 'dataset_title', 'dataverse', 'restricted', 'license', 'reuse_requirements', 'confidentiality', 'permission', 'restrictions', 'conditions', 'disclaimer', 'terms_access', 'data_access_place', 'availability', 'contact_access']]
+    df_version_pruned = df_select_versions_concatenated_released[['version_id_x', 'dataset_id', 'dataset_contact', 'dataset_email', 'dataset_depositor', 'total_version_x', 'keywords', 'total_keywords', 'filename', 'file_id', 'original_mime_type', 'original_friendly_type', 'file_size', 'storage_identifier', 'creation_date', 'publication_date', 'institution', 'doi', 'file_size_bin', 'dataset_title', 'dataverse', 'restricted', 'license', 'reuse_requirements', 'confidentiality', 'permission', 'restrictions', 'conditions', 'disclaimer', 'terms_access', 'data_access_place', 'availability', 'contact_access']]
     df_version_pruned = df_version_pruned.rename(columns={'total_version_x': 'total_version', 'filename_x': 'filename', 'file_size_x': 'file_size', 'storage_identifier_x': 'storage_identifier', 'creation_date_x': 'creation_date', 'publication_date_x':'publication_date', 'version_id_x': 'version_id'})
     df_version_pruned['creation_year'] = pd.to_datetime(df_version_pruned['creation_date'], format='%Y-%m-%d').dt.year
     df_version_pruned['publication_year'] = pd.to_datetime(df_version_pruned['publication_date'], format='%Y-%m-%d').dt.year
 
-df_native_pruned = df_select_concatenated_exist[['dataset_id', 'dataset_title', 'description', 'notes', 'dataset_contact', 'dataset_email', 'dataset_depositor','version_id', 'current_status', 'total_version', 'keywords', 'malformatted_keywords', 'title_period', 'title_extra_space', 'descriptive_word_count_title', 'descriptive_word_count_description', 'descriptive_keywords', 'nondescriptive_metadata','missing_orcid', 'missing_ror', 'filename', 'file_id', 'original_mime_type', 'original_friendly_type', 'file_size', 'storage_identifier', 'creation_date', 'publication_date', 'institution', 'doi', 'file_size_bin', 'dataverse', 'restricted', 'license', 'reuse_requirements', 'confidentiality', 'permission', 'restrictions', 'conditions', 'disclaimer', 'terms_access', 'data_access_place', 'availability', 'contact_access']]
+df_native_pruned = df_select_concatenated_exist[['dataset_id', 'dataset_title', 'description', 'notes', 'dataset_contact', 'dataset_email', 'dataset_depositor','version_id', 'current_status', 'total_version', 'keywords', 'filename', 'file_id', 'original_mime_type', 'original_friendly_type', 'file_size', 'storage_identifier', 'creation_date', 'publication_date', 'institution', 'doi', 'file_size_bin', 'dataverse', 'restricted', 'license', 'reuse_requirements', 'confidentiality', 'permission', 'restrictions', 'conditions', 'disclaimer', 'terms_access', 'data_access_place', 'availability', 'contact_access']]
 
 df_native_pruned = df_native_pruned.copy()
 df_native_pruned['creation_year'] = pd.to_datetime(df_native_pruned['creation_date'], format='%Y-%m-%dT%H:%M:%SZ').dt.year
@@ -1005,7 +924,7 @@ for col in df_tdr_all_files_combined.columns:
         df_tdr_all_files_combined[col] = df_tdr_all_files_combined[col].apply(lambda x: '; '.join(map(str, x)))
 
 tdr_all_datasets_deduplicated = df_tdr_all_files_combined.drop_duplicates(subset='dataset_id', keep='first')
-tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated[['dataset_id', 'description', 'notes', 'dataset_contact', 'dataset_email','dataset_depositor','version_id', 'total_version', 'keywords', 'malformatted_keywords', 'title_period', 'title_extra_space', 'descriptive_word_count_title', 'descriptive_word_count_description', 'descriptive_keywords', 'nondescriptive_metadata','missing_orcid', 'missing_ror', 'original_mime_type', 'original_friendly_type', 'file_size', 'creation_date', 'publication_date', 'is_holiday', 'is_weekend', 'institution', 'doi', 'dataset_title', 'dataverse', 'creation_year', 'publication_year', 'restricted', 'license', 'reuse_requirements', 'confidentiality', 'permission', 'restrictions', 'conditions', 'disclaimer', 'terms_access', 'data_access_place', 'availability', 'contact_access', 'is_readme', 'is_codebook', 'is_data_dictionary', 'has_documentation', 'friendly_format_manual', 'is_software', 'is_compressed', 'is_microsoft_office']]
+tdr_all_datasets_deduplicated_pruned = tdr_all_datasets_deduplicated[['dataset_id', 'description', 'notes', 'dataset_contact', 'dataset_email','dataset_depositor','version_id', 'total_version', 'keywords', 'original_mime_type', 'original_friendly_type', 'file_size', 'creation_date', 'publication_date', 'is_holiday', 'is_weekend', 'institution', 'doi', 'dataset_title', 'dataverse', 'creation_year', 'publication_year', 'restricted', 'license', 'reuse_requirements', 'confidentiality', 'permission', 'restrictions', 'conditions', 'disclaimer', 'terms_access', 'data_access_place', 'availability', 'contact_access', 'is_readme', 'is_codebook', 'is_data_dictionary', 'has_documentation', 'friendly_format_manual', 'is_software', 'is_compressed', 'is_microsoft_office']]
 
 #handles entries where aggregation returned a mixed 'False;True' value
 def normalize_boolean_column(col):
@@ -1036,32 +955,6 @@ if split_institution_output and not only_my_institution:
         df.to_csv(filename, index=False, encoding='utf-8-sig')
         print(f"Saved {filename}")
 
-##creating flagged dataset list
-if biweekly_report:
-    if exclude_drafts:
-        tdr_all_datasets_deduplicated_pruned['missing_orcid'] = (tdr_all_datasets_deduplicated_pruned['missing_orcid'].astype(str).str.upper() == "TRUE")
-        tdr_all_datasets_deduplicated_pruned['missing_ror'] = (tdr_all_datasets_deduplicated_pruned['missing_ror'].astype(str).str.upper() == "TRUE")
-        flagged_datasets = tdr_all_datasets_deduplicated_pruned[tdr_all_datasets_deduplicated_pruned['missing_orcid'] |tdr_all_datasets_deduplicated_pruned['missing_ror']]
-        flagged_datasets.to_csv(f'outputs/{today}_{institution_filename}_flagged-datasets-PUBLISHED.csv', index=False, encoding='utf-8-sig')
-        flagged_datasets['dataset_email'] = flagged_datasets['dataset_email'].str.split('; ')
-        flagged_contacts = flagged_datasets.explode('dataset_email')
-        flagged_contacts.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED.csv', index=False, encoding='utf-8-sig')
-        flagged_contacts_dedup = flagged_contacts.drop_duplicates(subset=['dataset_email'], keep='first')
-        flagged_contacts_dedup = flagged_contacts_dedup[['dataset_id', 'dataset_contact', 'dataset_email', 'dataset_depositor', 'doi', 'dataset_title']]
-        flagged_contacts_dedup.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED-dedup.csv', index=False, encoding='utf-8-sig')
-        flagged_contacts_identified = pd.merge(
-            flagged_contacts_dedup,
-            tdr_users,
-            left_on='dataset_email',
-            right_on='email',
-            how='left'
-        )
-        flagged_contacts_identified.to_csv(f'outputs/{today}_{institution_filename}_flagged-contacts-PUBLISHED-dedup-identified.csv', index=False, encoding='utf-8-sig')
-
-    else:
-        flagged_datasets = tdr_all_datasets_deduplicated_pruned[(tdr_all_datasets_deduplicated_pruned['missing_orcid'] == True) | (tdr_all_datasets_deduplicated_pruned['missing_ror'] == True)]
-        flagged_datasets.to_csv(f'outputs/{today}_{institution_filename}_flagged-datasets-ALL.csv', index=False, encoding='utf-8-sig')
-
 #size summary
 size_by_year = df_all_files_concat_deduplicated.groupby('creation_year')['file_size'].sum().reset_index()
 size_by_year['fileGB'] = size_by_year['file_size'] / 1000000000
@@ -1082,90 +975,6 @@ if exclude_drafts:
 else:
     unique_datasets_per_format.to_csv(f'outputs/{today}_{institution_filename}_SUMMARY-unique-format-ALL.csv', index=False, encoding='utf-8-sig')
 
-#author assessment
-##fuzzy matching author names
-###sorting by length to get it to retain a longer, more detailed name (e.g., with middle initial vs. without)
-unique_names = sorted(
-    df_all_authors_concat_deduplicated['author_name'].unique(), 
-    key=len, 
-    reverse=True
-)
-standardized_names = {}
-
-for name in unique_names:
-    if not standardized_names:
-        # 100 is maximum score
-        standardized_names[name] = (name, 100.0)
-        continue
-
-    result = process.extractOne(
-        name, 
-        standardized_names.keys(), 
-        scorer=fuzz.token_sort_ratio
-    )
-    
-    if result:
-        match, score, _ = result
-        if score > 80:
-            standardized_names[name] = (match, score)
-        else:
-            standardized_names[name] = (name, 100.0)
-    else:
-        standardized_names[name] = (name, 100.0)
-
-results_map = df_all_authors_concat_deduplicated['author_name'].map(standardized_names)
-
-df_all_authors_concat_deduplicated['author_name_standardized'] = results_map.apply(lambda x: x[0])
-df_all_authors_concat_deduplicated['match_score'] = results_map.apply(lambda x: x[1])
-
-##is ROR present
-df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.copy()
-df_all_authors_concat_deduplicated.loc[:, 'missing_ror'] = (df_all_authors_concat_deduplicated['ror_id'].isna() | (df_all_authors_concat_deduplicated['ror_id'] == ''))
-##is any author ID system present
-df_all_authors_concat_deduplicated.loc[:, 'missing_author_scheme'] = (df_all_authors_concat_deduplicated['author_identifier_scheme'].isna() |
-    (df_all_authors_concat_deduplicated['author_identifier_scheme'] == ''))
-##ROR present and appropriately formatted
-df_all_authors_concat_deduplicated.loc[:, 'proper_ror'] = df_all_authors_concat_deduplicated['ror_id'].str.contains('https://ror.org/', na=False)
-##ORCID present and appropriately formatted
-df_all_authors_concat_deduplicated.loc[:, 'proper_orcid'] = (
-    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
-) & df_all_authors_concat_deduplicated['author_identifier'].str.contains('https://orcid.org/00', na=False)
-##is ORCID present but malformatted (not hyperlinked)
-df_all_authors_concat_deduplicated.loc[:,'malformed_orcid_no_hyphens'] = (
-    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
-) & ~df_all_authors_concat_deduplicated['author_identifier'].str.contains('-', na=False)
-##is ORCID present but malformatted (no dashes)
-df_all_authors_concat_deduplicated.loc[:,'malformed_orcid_no_url'] = (
-    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
-) & ~df_all_authors_concat_deduplicated['author_identifier'].str.contains('https://orcid.org/00', na=False)
-##is ORCID present but malformatted (space between shoulder and identifier)
-df_all_authors_concat_deduplicated.loc[:,'malformed_orcid_space'] = (
-    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
-) & ~df_all_authors_concat_deduplicated['author_identifier'].str.contains('https://orcid.org/ 00', na=False)
-##is ORCID present but malformatted (single field)
-df_all_authors_concat_deduplicated.loc[:,'malformed_orcid_single_field'] = (
-    df_all_authors_concat_deduplicated['author_identifier_scheme'].str.upper() == 'ORCID'
-) & df_all_authors_concat_deduplicated['author_identifier_expanded'].isna()
-
-df_all_authors_concat_deduplicated.loc[:, 'malformed_orcid_any'] = (
-    df_all_authors_concat_deduplicated['malformed_orcid_no_hyphens'] |
-    df_all_authors_concat_deduplicated['malformed_orcid_no_url'] |
-    df_all_authors_concat_deduplicated['malformed_orcid_space'] |
-    df_all_authors_concat_deduplicated['malformed_orcid_single_field']
-)
-##malformed author name (order)
-df_all_authors_concat_deduplicated.loc[:, 'malformed_order'] = (
-    df_all_authors_concat_deduplicated['author_name'].str.contains(' ', na=False) & 
-    ~df_all_authors_concat_deduplicated['author_name'].str.contains(',', na=False)
-)
-##malformed initial (standalone initial without period)
-df_all_authors_concat_deduplicated.loc[:, 'malformed_initial'] = df_all_authors_concat_deduplicated['author_name'].str.contains(r'\b[A-Z]\b(?!\.)', regex=True)
-
-df_all_authors_concat_deduplicated.loc[:, 'malformed_name'] = (
-    df_all_authors_concat_deduplicated['malformed_order'] |
-    df_all_authors_concat_deduplicated['malformed_initial'] 
-)
-
 if exclude_drafts:
     df_all_authors_concat_deduplicated = df_all_authors_concat_deduplicated.sort_values(by='author_name')
     df_all_authors_concat_deduplicated.to_csv(f'outputs/{today}_{institution_filename}_all-authors-PUBLISHED.csv', index=False, encoding='utf-8-sig')
@@ -1176,13 +985,13 @@ else:
 df_all_affiliations_dedup = df_all_authors_concat_deduplicated.drop_duplicates(subset=['author_affiliation'], keep='first')
 df_all_affiliations_dedup = df_all_affiliations_dedup.rename(columns={'author_affiliation': 'affiliation'})
 
-if master_ror_matching is None: #create master file if it doesn't exist yet
-    print('No existing master file found, creating new one.\n')
+if ror_map is None: #create primary file if it doesn't exist yet
+    print('No existing primary file found, creating new one.\n')
     print(f'Total unique affiliations: {len(df_all_affiliations_dedup) - 1}\n')
     df_all_affiliations_dedup.to_csv(f'{script_dir}/affiliation-map-primary.csv', index=False, encoding='utf-8-sig')
-else: #concat master file with new list of unique affiliations, drop duplicates (keep first will retain existing matches)
-    print('Found existing master file, adding and deduplicating.\n')
-    df_all_affiliations_dedup_expanded = pd.concat([master_ror_matching, df_all_affiliations_dedup])
+else: #concat primary file with new list of unique affiliations, drop duplicates (keep first will retain existing matches)
+    print('Found existing primary file, adding and deduplicating.\n')
+    df_all_affiliations_dedup_expanded = pd.concat([ror_map, df_all_affiliations_dedup])
     print(f'Total affiliations: {len(df_all_affiliations_dedup_expanded)}\n')
     df_all_affiliations_dedup_expanded_pruned = df_all_affiliations_dedup_expanded.drop_duplicates(subset=['affiliation'], keep='first')
     print(f'Total unique affiliations: {len(df_all_affiliations_dedup_expanded_pruned) - 1}\n')
@@ -1572,8 +1381,8 @@ if exclude_drafts:
 else:
     authors_dataverse_dataset_merged.to_csv(f'outputs/{today}_{institution_filename}_all-authors-datasets-dataverses.csv', index=False, encoding='utf-8-sig')
 
-if master_ror_matching is not None:
-    print(f'Number of new affiliations to check: {len(df_all_affiliations_dedup_expanded_pruned) - len(master_ror_matching)}.\n')
+if ror_map is not None:
+    print(f'Number of new affiliations to check: {len(df_all_affiliations_dedup_expanded_pruned) - len(ror_map)}.\n')
 print(f'Done\n---Time to run: {datetime.now() - start_time}---\n')
 if test:
     print('**REMINDER: THIS IS A TEST RUN, AND ANY RESULTS ARE NOT COMPLETE!**\n')
