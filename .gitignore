@@ -11,6 +11,17 @@ sensitive-data-screen.py
 TDR-regression-modeling.py
 dataverse-apis-information-comparison.png
 tdr-affiliation-ror-*
+affiliation-map-primary-TEMP.csv
+dataverse-reports-*/
+Dataverse-users-*
+graphs.html
+graphs.ipynb
+draft-graphs.pdf
+funder-map_TEMP.csv
+graphs_files/
+logs/
+new-file-formats.csv
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
