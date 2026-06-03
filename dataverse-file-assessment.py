@@ -226,12 +226,12 @@ else:
         print('logs directory has been created\n')
     logs_dir = os.path.join(script_dir, 'logs')
 
-print('Beginning to define API call parameters.')
-url_tdr = 'https://dataverse.tdl.org/api/search/'
-
 #############################################
 ####           Search API set-up         ####
 #############################################
+
+print('Beginning to define API call parameters.')
+url_tdr = 'https://dataverse.tdl.org/api/search/'
 
 # Variable params for test environment
 if test and only_my_institution:
@@ -415,7 +415,7 @@ all_params_datasets = {
         'UT Southwestern Medical': params_tdr_utswm,
         'Lamar': params_tdr_lamar,
         'UT Arlington': params_tdr_uta,
-        "Texas Women's University": params_tdr_twu
+        "Texas Woman's University": params_tdr_twu
     }
 
 # TAMU system-specific
@@ -424,6 +424,7 @@ tamu_combined_params = {
         'TAMU Galveston': params_tdr_tamug,
         'TAMU International': params_tdr_tamui
 }
+
 if only_my_institution:
     if my_institution_short_name == 'TAMU':
         params_list = tamu_combined_params
@@ -1120,11 +1121,11 @@ df_dataset_entries_aggregated = df_dataset_entries_aggregated.copy()
 for col in bool_columns:
     df_dataset_entries_aggregated[col] = normalize_boolean_column(df_dataset_entries_aggregated[col])
 df_dataset_entries_aggregated = df_dataset_entries_aggregated.rename(columns={'file_size': 'dataset_size'})
-
-df_dataset_entries_aggregated.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-{status_filename}.csv', index=False, encoding='utf-8-sig')
 # Bin datasets by manually calculated size
 df_dataset_entries_aggregated = assign_size_bins(df_dataset_entries_aggregated, column='dataset_size', new_column='dataset_size_bin')
-cols_files_aggregated = ['filename', 'file_id', 'original_mime_type', 'dataset_size', 'storage_identifier', 'file_creation_date', 'file_publication_date', 'created_original', 'file_size_bin', 'restricted']
+
+df_dataset_entries_aggregated.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-{status_filename}.csv', index=False, encoding='utf-8-sig')
+cols_files_aggregated = ['filename', 'file_id', 'original_mime_type', 'dataset_size', 'dataset_size_bin', 'storage_identifier', 'file_creation_date', 'file_publication_date', 'created_original', 'file_size_bin', 'restricted']
 df_dataset_entries_aggregated_pruned = df_dataset_entries_aggregated[core_dataset_cols+cols_files_aggregated+['dataset_size_bin', 'persistentUrl']]
 
 df_dataset_entries_enriched = pd.merge(df_dataset_entries, df_dataset_entries_aggregated_pruned, on='persistentUrl', how='left')
@@ -1300,7 +1301,7 @@ all_params_dataverses = {
         'UT San Antonio Health': params_tdr_utsah,
         'UT Southwestern Medical': params_tdr_utswm,
         'UT Arlington': params_tdr_uta,
-        "Texas Women's University": params_tdr_twu
+        "Texas Woman's University": params_tdr_twu
     }
 
 tamu_combined_params = {
