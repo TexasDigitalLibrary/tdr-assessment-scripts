@@ -1,59 +1,44 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 0.0.9.
-* *Released*: 2026/02/24
+* *Version*: 0.0.10.
+* *Released*: 2026/06/03
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-* *README last updated*: 2026/02/24
+* *README last updated*: 2026/06/03
 
 ## Table of Contents
 1. [Purpose](#purpose)
 2. [Organization & file list](#organization--file-list)
-3. [Overview](#overview)
-4. [Re-use](#re-use)
+3. [Re-use](#re-use)
 
 ## Purpose
 
-This repository includes a series of scripts that are designed for a variety of reporting and assessment purposes for the Texas Data Repository (TDR). They are intended for both institution-level and TDR-level analysis.
+This repository includes scripts that are designed for reporting and assessment purposes for the Texas Data Repository (TDR). They are intended for both institution-level and TDR-level analysis.
 
 ## Organization & file list
-1. **dataverse-file-assessment.py**: This script is used to retrieve file-level information in order to calculate the total deposit size per year for either a single institution or all TDR institutions and to gain insights into file format trends. It can be extrapolated "upward" to dataset- and dataverse-level summaries as well.
-
-## Overview
-1. **dataverse-file-assessment.py**: This script makes exclusive use of the Dataverse API and therefore requires an API token to run. It involves a multi-step process that repeatedly hits the API, which means it will likely be heavily impacted by future rate limiting. The script first queries the [Search API](https://guides.dataverse.org/en/latest/api/search.html) for all datasets in a given collection (institution-specific) or will look across all TDR institutions (in theory, you could pick some but not all, but I can't think of a use case for that off the top of my head). Regardless of the scope, a non-superuser will pick up deposits in *Draft* and *Deaccessioned* status for their institution but not those of others - a superuser should get everything. If a dataset was previously published and is in *DRAFT* status, it will be double-listed, once for each status. The dataframe is de-duplicated, removing the draft version for datasets that were previously published (so any retained object with *DRAFT* has never been published), and then each DOI is fed into the [Native API](https://guides.dataverse.org/en/latest/api/native-api.html). This will retrieve metadata not available through the Search API for the most recent version (either *Published* or *Draft* and regardless of previous publication or lack thereof), such as total deposit size and information on the individual files (e.g., storageIdentifier, individual size, mimeType, date of creation). *Deaccessioned* datasets are removed at this point, as they do not record any storage size (they probably do for a superuser since the files are retained in the system, so their storage allocation is not zero). The retrieval of file-level information allows for reliable calculation of total storage size based on when the file was first ingested, since it starts imposing a cost at that point, and the counting of file formats. File format counting is NOT the total number of files in the system with a given extension because some disciplines can generate thousands of nearly identical files for one study; instead, this script counts how many unique datasets each file format occurs in, which is considered more reliable for understanding the prevalence of different formats. Finally, the script repeats the two-step process of combining the Search and Native APIs in order to retrieve information on dataverses. The basic functionality for this is finished, but additional work is needed to better convey nested relationships and to obtain dataverse storage size (the endpoint is apparently restricted to super-users).
-3. **dataverse-file-assessment.ipynb**: Jupyter notebook version of the above script. 
-4. **dataverse-file-assessment.html**: HTML output of a test run of the above script. *intended only for training purposes; data are incomplete*. If the formatting doesn't look right, try the PDF output.
-5. **dataverse-file-assessment.pdf**: PDF output of a test run of the above script. *intended only for training purposes; data are incomplete*
-6. **tdr-affiliation-ror-matching.csv**: This is a file developed for automated re-curation workflows that may be integrated into this dataset/file assessment workflow as well. It provides a mapping of every unique listed affiliation in the UT Austin dataverse (as of 2025/12/04) to a ROR identifier (if one exists). 
-7. **utils.py**: This file contains all of the functions needed for the script. As a note, this is a master function file being used by the developer across many different projects, so it includes many functions irrelevant to this repository, which is why only the necessary ones are imported in the scripts.
+1. **dataverse-file-assessment.py**: Despite the name, this script retrieves metadata at the dataset and collection levels as well as at the file level. This is accomplished through multiple API calls through the [Search API](https://guides.dataverse.org/en/latest/api/search.html) and the [Native API](https://guides.dataverse.org/en/latest/api/native-api.html) and includes metadata that is not present in the monthly institutional reports generated by TDL (though conversely, some information available in those reports, like metadata on unpublished datasets for all institutions, cannot be retrieved from these scripts). The script can either be run at the institution-level, in which case a regular liaison user would be able to retrieve unpublished collections, datasets, and files, or it can be run at the pan-TDR level. Core parts of the codebase have been modified or created in parallel with the [Metadata Re-Curation Workflow](https://github.com/TexasDigitalLibrary/dv-metadata-updater) such that the current version differs a fair bit from previous versions.
+2. **dataverse-file-assessment.ipynb**: The same as the first file, just in Jupyter format.
+3. **tcdl-graphs.ipynb**: Jupyter notebook with code to generate graphics for annual TCDL usage reporting.
+4. **affiliation-map-primary.csv**: This is a file developed for automated re-curation workflows that may be integrated into this dataset/file assessment workflow as well. It provides a mapping of every unique listed affiliation in the UT Austin dataverse (as of 2026/05/28) to a ROR identifier (if one exists). 
+5. **funder-map-primary.csv**: This is a file developed for automated re-curation workflows that may be integrated into this workflow as well. It provides a mapping of every unique listed funder across all TDR published datasets (as of 2026/05/28) to a ROR identifier (if one exists).
+6. **utils.py**: This file contains all of the functions needed for the scripts. As a note, this is a function file being used by the developer across many different projects, so it includes many functions irrelevant to this repository, which is why only the necessary ones are imported in the scripts. It should not be modified except by users with detailed knowledge of Python and this workflow.
 
 ## Outputs
 ### dataverse-file-assessment
-This script will return ten outputs:
-1. ***date*_*institution*_all-dataverses.csv**: a dataframe with entries for all dataverses.
-2. ***date*_*institution*_all-deposits.csv**: a dataframe with an entry for every dataset (including deaccessioned and never-published drafts) retrieved from the search process. For datasets that were previously published and are now in draft, multiple entries are recorded (default Search API behaviour). 
-3. ***date*_*institution*_all-deposits-deduplicated.csv**: the same but with only one record for each DOI, retaining the 'PUBLISHED' version over the 'DRAFT' version for datasets with multiple entries.
-4. ***date*_*institution*_dual-status-datasets.csv**: a dataframe with entries for all datasets that return multiple entries from the Search API (previously published, now in 'DRAFT')
-5. ***date*_*institution*_all-files-deduplicated.csv**: a dataframe with an entry for each file retrieved from the search process. Note that this is through the Search, Native, and Version APIs.
-6. ***date*_*institution*_all-datasets-combined.csv**: a dataframe with an entry for each dataset after re-aggregating all files and their metadata.
-7. ***date*_*institution*_all-datasets-combined-with-dataverses.csv**: a dataframe with an entry for each dataset after re-aggregating all files and their metadata, joined with the _all-dataverses.csv dataframe. Unnested datasets (i.e. those at the highest level within an institution's dataverse) are listed with standardized unique entries in all dataverse-level fields (e.g., '0' for all numerical ID fields).
-8. ***date*_*institution*_all-authors.csv**: a dataframe with an entry for each author associated with at least one dataset. Authors are only deduplicated on a combination of DOI, name, affiliation, and current version state of the dataset, so many authors will have multiple entries.
-9. ***date*_*institution*_SUMMARY-unique-format.csv**: a dataframe with a summary of the number of unique datasets in which each file format occurs.
-10. ***date*_*institution*_SUMMARY-annual-size.csv**: a dataframe with a summary of the total file size of files created in a given year. Which date is used (e.g., 'publication date' versus 'creation date' could be modified).
+This script will return eight direct output files (listed in the order in which they are generated):
 
-If you enable the toggle to omit unpublished datasets, files 5-10 will be exported with a "-*PUBLISHED*" suffix appended to them; otherwise, they will be exported with a "-*ALL*" suffix.
+1. ***date*_*institution*_all-deposits.csv**: a dataset-level dataframe with an entry for every dataset that is returned from the Search API. For users with the appropriate permissions, this can include unpublished and deaccessioned datasets. This dataframe is merged with one of the TDL data dumps for additional dataset-level metadata.
+2. ***date*_*institution*_all-files-deduplicated.csv**: a file-level dataframe with an entry for each file retrieved from the search process. If you are only retrieving published records, this will have '-PUBLISHED' appended to the end of the filename.
+3. ***date*_*institution*_all-datasets-combined.csv**: a dataset-level dataframe that is constructed by aggregating all file-level information into dataset-level entries and then merging it with one of the TDL data dumps for additional dataset-level metadata.
+4. ***date*_*institution*_all-dataverses.csv**: a collection-level dataframe with an entry for every collection that is returned from the Search API. For users with the appropriate permissions, this can include unpublished and deaccessioned collections. This dataframe is merged with one of the TDL data dumps for additional collection-level metadata.
+5. ***date*_*institution*_SUMMARY-unique-format.csv**: a dataframe with a summary of the number of unique datasets in which each file format occurs.
+6. ***date*_*institution*_SUMMARY-annual-size.csv**: a dataframe with a summary of the total file size of files created in a given year.
+7. ***date*_*institution*_all-datasets-combined-with-dataverses.csv**: a dataset-level dataframe that is essentially files 3 and 4 combined. If you enable metrics retrieval, these will be appended to this file.
+8. ***date*_*institution*_all-datasets-combined-with-dataverses-PUBLISHED.csv**: the same as file 7 but only for published datasets.
 
-If you enable to toggle to cross-reference the biweekly dataverse report, the script will generate four files: 
-* ***date*_*institution*_flagged-datasets-PUBLISHED**: this file contains all datasets where at least one author is missing an ORCID or a ROR (will be almost all of them). It is mostly for metadata re-curation.
-* ***date*_*institution*_flagged-contacts-PUBLISHED.csv**: this file is an exploded version of the previous file to handle when there are multiple contact emails for one flagged dataset, creating one row for each contact email. It is mostly for metadata re-curation.
-* ***date*_*institution*_flagged-contacts-PUBLISHED-dedup.csv**: this file deduplicates on contact email, thereby recording only unique contact emails for flagged datasets. It is mostly for metadata re-curation.  
-* ***date*_*institution*_flagged-contacts-PUBLISHED-dedup-identified.csv**: this file is merged with the biweekly dataverse report, specifically the list of registered users. It is mostly for metadata re-curation. 
-
-If you enable the sensitive data scan, the script will generate a file ***date*_*institution_sensitive-data-flagged.csv** that has all flagged datasets with the metadata terms that led them to be flagged, which metadata fields those terms are in, and a composite source of all flags (e.g., both metadata fields and restricted access conditions).
-
-If you already have the file called *tdr-affiliation-ror-matching.csv*, the script will also generate a file called *tdr-affiliation-ror-matching-TEMP.csv*. This file is generated by collecting all unique affiliations in the latest run, combining that with the existing file, and de-duplicating (keeping the previous entries, at least some of which will have been ROR-matched). The idea is to build a continually growing reference file for your local TDR instance, so after editing the *-TEMP* file, you should manually save it as *tdr-affiliation-ror-matching.csv* to overwrite the older version so that the next time the script runs, it will pull that new version. If you don't have the *tdr-affiliation-ror-matching.csv* file to start, the first time you run this script, it will save the unique affiliation dataframe as that filename, and then you can start building the database for ROR matching. **It is not necessary to work with this output if you do not want to.**
+If you already have the file called *affiliation-map-primary.csv*, the script will also generate a file called *affiliation-map-primary-TEMP.csv*. This file is generated by collecting all unique affiliations in the latest run, combining that with the existing file, and de-duplicating (keeping the previous entries, at least some of which will have been ROR-matched). The idea is to build a continually growing reference file for your local TDR instance, so after editing the *-TEMP* file to add any new ROR matches, you should manually save it as *affiliation-map-primary.csv* to overwrite the older version so that the next time the script runs, it will pull that new version. If you don't have the *affiliation-map-primary.csv* file to start, the first time you run this script, it will save the unique affiliation dataframe as that filename, and then you can start building the database for ROR matching. The same is true for the *funder-map-primary.csv* file. **It is not necessary to edit these files if you do not want to; the idea would be for someone to be responsible for centrally maintaining the currency of these maps.**
 
 ## Re-use
 These scripts can be freely re-used, re-distributed, and modified in line with the associated [GNU GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.en.html). If a re-user is only seeking to replicate a UT-Austin-specific output or to retrieve an equivalent output for a different institution, the script will require very little modification - essentially only the defining of affiliation parameters will be necessary. A superuser could have greater functionality in some instances, but superuser-specific functionality has largely not been developed because I have no way to test it.
@@ -68,7 +53,12 @@ API keys and numerical API query parameters (e.g., records per page, page limit)
 Users will need to create accounts for [Dataverse](https://guides.dataverse.org/en/latest/api/auth.html) in order to obtain personalized API keys, add those to the *config-template.json* file, and rename it as *config.json*. 
 
 ### Test environment
-A Boolean variable called *test*, located immediately after the importing of packages, can be used to create a 'test environment.' If this setting is set to TRUE, the script is set to only retrieve a handful of pages of the full response. It is useful for testing new functionality and trouble-shooting, provided that any bugs are not edge cases that are unlikely to be retrieved in a restricted sample size.
+A Boolean variable called *test*, defined in the *config.json* file, can be used to create a 'test environment.' If this setting is set to TRUE, the script is set to only retrieve a handful of pages of the full response. It is useful for testing new functionality and trouble-shooting, provided that any bugs are not edge cases that would be unlikely to be retrieved in a small sample size.
 
 ### Rate limiting
-In the present configuration, any rate limiting is unlikely to affect the workflows or require modification because of how queries are not targeting specific DOIs (i.e. a few requests return many records). However, potential/planned expansion may necessitate the use of targeted single-object retrieval. 
+Following requests to implement manual rate limiting, large batches of iterative API calls have had manually rate limiting implemented in the code (via *time.sleep* commands). This should not be modified.
+
+### File requirements
+In addition to the technical infrastructure needed to run this script, two different files provided by TDL are necessary:
+1. **dataverse-reports-YYYYMMDD**: this folder contains the biweekly (now monthly?) reports run for each institution. The primary script here will concatenate all of the datasets and dataverses by importing each file's relevant sheets and will output a single concatenated file for each into that same folder.
+2. **Dataverse-users-YYYYMMDD.xlsx**: this Excel file contains all users in the system and cannot be reproduced by concatenating the 'users' tab from the biweekly reports. It is only necessary for the graphing components - there are no additional data retrieval components involved with this. This should be converted to a CSV for import.

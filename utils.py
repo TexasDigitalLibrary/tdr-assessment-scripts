@@ -126,6 +126,15 @@ def retrieve_page_dataverse(url, params=None, headers=None):
         print(f'Error retrieving page: {e}')
         return {'data': {'items': [], 'total_count': 0}}
 # Retrieves all pages of DataCite results
+def retrieve_page_dataverse(url, params=None, headers=None):
+    try:
+        response = requests.get(url, params=params, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print(f'Error retrieving page: {e}')
+        return {'data': {'items': [], 'total_count': 0}}
+# Retrieves all pages of DataCite results
 def retrieve_dataverse(url, params, headers, page_start, per_page, page_limit=None):
     all_data_dataverse = []
     params = params.copy()
@@ -149,6 +158,7 @@ def retrieve_dataverse(url, params, headers, page_start, per_page, page_limit=No
 
         # Pagination logic
         current_page += 1
+        adjusted_page +=1
         params['start'] += per_page
 
         if params['start'] >= total_count:
@@ -159,16 +169,18 @@ def retrieve_dataverse(url, params, headers, page_start, per_page, page_limit=No
             break
 
     return all_data_dataverse
+## Retrieves many pages from many institutions
+def retrieve_all_institutions(url, params_list, headers, page_start, per_page, page_limit = None):
+    all_data = []
 
-# Retrieves single page of Zenodo results
-def retrieve_page_zenodo(url, params=None):
-    try:
-        response = requests.get(url, params=params, timeout=30)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        print(f'Error retrieving page: {e}')
-        return {'hits': {'hits': [], 'total': {}}, 'links': {}}
+    for institution_name, params in params_list.items():
+        # Reset k for each institution if needed (but is k still used?)
+        all_data_tdr = retrieve_dataverse(url, params, headers, page_start, per_page, page_limit)
+        for entry in all_data_tdr:
+            entry['institution'] = institution_name 
+            all_data.append(entry)
+
+    return all_data
 # Retrieves page number in Zenodo query
 def extract_page_number(url):
     parsed_url = urlparse(url)
@@ -310,19 +322,6 @@ def retrieve_all_journals(url_template, journal_list, params_crossref_journal, p
         params['filter'] += f',issn:{issn}'
         journal_data = retrieve_crossref_func(custom_url, params, page_limit_crossref)
         all_data.extend(journal_data)
-    return all_data
-
-## Retrieves many pages from many institutions
-def retrieve_all_institutions(url, params_list, headers, page_start, per_page, page_limit = None):
-    all_data = []
-
-    for institution_name, params in params_list.items():
-        # Reset k for each institution if needed (but is k still used?)
-        all_data_tdr = retrieve_dataverse(url, params, headers, page_start, per_page, page_limit)
-        for entry in all_data_tdr:
-            entry['institution'] = institution_name 
-            all_data.append(entry)
-
     return all_data
 
 ### Metadata cleaning / assessment functions ###
