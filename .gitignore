@@ -1,25 +1,26 @@
 # Custom
-config.json
-test/
-libs/
+env.json
+dataverse-file-assessment_files/
+dataverse-reports-*/
+graphs_files/
 inputs/
+institutional-reports/
+logs/
 outputs/
 plots/
 script-archive/
+test/
 graphs-etc.py
 sensitive-data-screen.py
 TDR-regression-modeling.py
 dataverse-apis-information-comparison.png
 tdr-affiliation-ror-*
 affiliation-map-primary-TEMP.csv
-dataverse-reports-*/
 Dataverse-users-*
 graphs.html
 graphs.ipynb
 draft-graphs.pdf
 funder-map_TEMP.csv
-graphs_files/
-logs/
 new-file-formats.csv
 
 
