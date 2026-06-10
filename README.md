@@ -45,7 +45,7 @@ If you already have the file called *affiliation-map-primary.csv*, the script wi
 Right now, this script is not set to write any outputs, as generated graphics can be directly copied out of the Jupyter notebook interface and into any desired program. In the future, the script will be set up to save these images.
 
 ### tcdl-institutional-reports.ipynb
-This script will return one PowerPoint file for each institution with the filename formatted as *{institution}_report_{date}.pptx*.
+This script will return one PowerPoint file for each institution with the filename formatted as *{institution}_report_{date}.pptx*. The slide-decks are in 16:9 format to facilitate direct adaptation of the pan-TDR graph code, which is mostly set to output plots at 14 x 7 dimensions.
 
 ## Re-use
 These scripts can be freely re-used, re-distributed, and modified in line with the associated [GNU GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.en.html). If a re-user is only seeking to replicate a UT-Austin-specific output or to retrieve an equivalent output for a different institution, the script will require very little modification - essentially only the defining of affiliation parameters will be necessary. A superuser could have greater functionality in some instances, but superuser-specific functionality has largely not been developed because I have no way to test it.
