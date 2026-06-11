@@ -53,7 +53,12 @@
         "default_axis_titles": 16,
         "default_axis_labels": 14,
         "default_legend": 13,
-        "default_bar_labels": 13
+        "default_bar_labels": 13,
+        "default_line_width": 3.5
+    },
+    "TABLES":{
+        "default_width": 15,
+        "default_height": 0.5
     },
     "SCHOOL_MAPS":{
         "SCHOOL_COLORS": {
@@ -72,6 +77,21 @@
             "UNT-HSC": "#00778b",
             "Other affiliation": "#808080",
             "No affiliation": "#4D4141"
+        },
+        "SCHOOL_LOGOS": {
+            "Baylor U": "logos/baylor_logo.png",
+            "Lamar U": "logos/lamar_logo.png",
+            "SMU": "logos/smu_logo.png",
+            "TAMU": "logos/tamu_logo.png",
+            "TAMU Galveston": "logos/tamug_logo.png",
+            "TAMIU": "logos/tamiu_logo.png",
+            "Texas State U": "logos/txst_logo.png",
+            "Texas Tech U": "logos/ttu_logo.png",
+            "UNT-HSC": "logos/unthsc_logo.png",
+            "U Houston": "logos/uh_logo.png",
+            "UT Austin": "logos/utexas_logo.png",
+            "UT Southwestern": "logos/utswmed_logo.png",
+            "UTHSCSA": "logos/uthscsa_logo.png"
         },
         "SCHOOL_NAMES": {
             "baylor": "Baylor U",
@@ -128,6 +148,36 @@
             "UT Austin": "The University of Texas at Austin",
             "UT Southwestern": "The University of Texas Southwestern Medical Center",
             "UTHSCSA": "The University of Texas at San Antonio Health Science Center"
+        },
+        "COLLECTION_NAMES": {
+            "Baylor U": "baylor",
+            "Lamar U": "lamar",
+            "SMU": "smu",
+            "TAMU": "tamu",
+            "TAMU Galveston": "tamug",
+            "TAMIU": "tamiu",
+            "Texas State U": "txst",
+            "Texas Tech U": "ttu",
+            "UNT-HSC": "unthsc",
+            "U Houston": "uh",
+            "UT Austin": "utexas",
+            "UT Southwestern": "utswmed",
+            "UTHSCSA": "uthscsa"
+        },
+        "COLLECTION_NUMBERS": {
+            "Baylor U": 64,
+            "Lamar U": 1025950,
+            "SMU": 272678,
+            "TAMU": 61,
+            "TAMU Galveston": 65,
+            "TAMIU": 67,
+            "Texas State U": 60,
+            "Texas Tech U": 70,
+            "UNT-HSC": 291286,
+            "U Houston": 71,
+            "UT Austin": 49,
+            "UT Southwestern": 263681,
+            "UTHSCSA": 272592
         },
         "MEMBERS": {
             "current_members": [
