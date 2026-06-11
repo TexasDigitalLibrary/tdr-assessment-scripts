@@ -1,12 +1,12 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 0.0.11.
-* *Released*: 2026/06/09
+* *Version*: 0.0.12.
+* *Released*: 2026/06/11
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-* *README last updated*: 2026/06/09
+* *README last updated*: 2026/06/11
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -50,9 +50,6 @@ This script will return one PowerPoint file for each institution with the filena
 ## Re-use
 These scripts can be freely re-used, re-distributed, and modified in line with the associated [GNU GPLv3 license](https://www.gnu.org/licenses/gpl-3.0.en.html). If a re-user is only seeking to replicate a UT-Austin-specific output or to retrieve an equivalent output for a different institution, the script will require very little modification - essentially only the defining of affiliation parameters will be necessary. A superuser could have greater functionality in some instances, but superuser-specific functionality has largely not been developed because I have no way to test it.
 
-### Disclaimer
-This workflow is, and likely will always be, perpetually under development. Reusers should be cognizant of these limitations in determining how data gained from this workflow may inform decision-making. The creator(s) and contributor(s) of this repository and any entities to which they are affiliated are not responsible for any decisions, policies, or other actions that are made on the basis of obtained data.
-
 ### env file
 API keys and numerical API query parameters (e.g., records per page, page limit) are defined in a *env.json* file. The file included in this repository called *env-template.json* should be populated with API keys and any other user/institution-specific information and renamed. 
 
@@ -69,3 +66,23 @@ Following requests to implement manual rate limiting, large batches of iterative
 In addition to the technical infrastructure needed to run this script, two different files provided by TDL are necessary:
 1. **dataverse-reports-YYYYMMDD**: this folder contains the biweekly (now monthly?) reports run for each institution. The primary script here will concatenate all of the datasets and dataverses by importing each file's relevant sheets and will output a single concatenated file for each into that same folder.
 2. **Dataverse-users-YYYYMMDD.xlsx**: this Excel file contains all users in the system and cannot be reproduced by concatenating the 'users' tab from the biweekly reports. It is only necessary for the graphing components - there are no additional data retrieval components involved with this. This should be converted to a CSV for import.
+3. **logos**: this folder contains PNG or JPG images of each institution's logo. This is not shared on GitHub for trademark purposes and can either be requested from this repository's maintainer (Bryan) or recreated yourself by adding a *logos* subfolder within the same directory as the script and adding images with the name *{institution}_logo*. For standardization, you should use the TDR collection abbreviation (e.g., 'utexas' for UT Austin) that is used as the alias for your institution's collection.
+
+### Modules
+These scripts make use of common modules that should either come pre-installed with a standard installation of Python or that are widely used and maintained:
+* ast
+* csv
+* datetime
+* io
+* json
+* matplotlib
+* numpy
+* os
+* pandas
+* pillow (PIL)
+* python-pptx
+* re
+* requests
+* sys
+* time
+* urllib
