@@ -14,12 +14,12 @@
         "subtree": "utexas"
     },
     "TOGGLES":{
-        "test": false,
-        "metrics_dc": true,
+        "test": true,
+        "metrics_dc": false,
         "metrics_dv": false,
         "only_my_institution": false,
         "current_members": false,
-        "split_outputs": false,
+        "split_outputs": true,
         "exclude_drafts": true,
         "versions_api": false
     },
@@ -65,9 +65,9 @@
             "Baylor U": "#154734", 
             "Lamar U": "#DC0031",
             "SMU": "#354CA1",
-            "TAMU": "#50000",
+            "TAMU": "#500000",
             "TAMIU": "#61162D",
-            "TAMU Galveston": "#50000",
+            "TAMU Galveston": "#500000",
             "Texas State U": "#501214",
             "Texas Tech U": "#E90802",
             "UTHSCSA": "#a44900",
@@ -211,6 +211,14 @@
                 "UTHSCSA", 
                 "No affiliation"
                 ]
+        },
+        "SCHOOL_GROUPS":
+        {
+            "by_size": {
+                "Large": ["UT Austin", "TAMU"],
+                "Medium": ["U Houston", "Baylor U", "Texas Tech U", "Texas State U", "No affiliation", "Other affiliation"],
+                "Small": ["TAMIU", "UNT-HSC", "UTHSCSA", "Lamar U", "SMU"]
+            }
         }
     },
     "FORMAT_MAP": {

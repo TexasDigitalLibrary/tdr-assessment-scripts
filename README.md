@@ -1,12 +1,12 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 1.1.2.
-* *Released*: 2026/06/23
+* *Version*: 1.2.0.
+* *Released*: 2026/06/24
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-* *README last updated*: 2026/06/23
+* *README last updated*: 2026/06/24
 
 ## Table of Contents
 1. [Purpose](#purpose)
@@ -25,6 +25,7 @@ This repository includes scripts that are designed for reporting and assessment 
 5. **affiliation-map-primary.csv**: This is a file developed for automated re-curation workflows that may be integrated into this dataset/file assessment workflow as well. It provides a mapping of every unique listed affiliation in the UT Austin dataverse (as of 2026/05/28) to a ROR identifier (if one exists). 
 6. **funder-map-primary.csv**: This is a file developed for automated re-curation workflows that may be integrated into this workflow as well. It provides a mapping of every unique listed funder across all TDR published datasets (as of 2026/05/28) to a ROR identifier (if one exists).
 7. **utils.py**: This file contains all of the functions needed for the scripts. As a note, this is a function file being used by the developer across many different projects, so it includes many functions irrelevant to this repository, which is why only the necessary ones are imported in the scripts. It should not be modified except by users with detailed knowledge of Python and this workflow.
+8. **data-dictionary.csv**: This file contains descriptions of the columns in four files, the data dictionary itself, the ***date*_*institution*_all-dataverses.csv** file, the ***date*_*institution*_all-datasets-combined-with-dataverses.csv**, and the ***date*_*institution*_all-files-deduplicated.csv** file. 
 
 ## Outputs
 ### dataverse-file-assessment.ipynb
