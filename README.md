@@ -1,12 +1,12 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 1.2.0.
-* *Released*: 2026/06/24
+* *Version*: 1.3.0.
+* *Released*: 2026/06/25
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-* *README last updated*: 2026/06/24
+* *README last updated*: 2026/06/25
 
 ## Table of Contents
 1. [Purpose](#purpose)
