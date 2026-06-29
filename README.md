@@ -1,7 +1,7 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 1.4.1.
+* *Version*: 1.5.0.
 * *Released*: 2026/06/29
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
@@ -12,10 +12,6 @@
 1. [Purpose](#purpose)
 2. [Organization & file list](#organization--file-list)
 3. [Re-use](#re-use)
-
-## Important notes for current version
-
-**The workflow is currently undergoing revision to make it more concise and comprehensible for others. During this time, some scripts are temporarily impaired by changes to the outputs until the relevant updates are carried through. Right now, some alternative versions of graphs in `tcdl-graphs.ipynb` (i.e. those not used in the most recent Usage Report) are not functional (coded out), and there are likely some issues with `tcdl-institutional-reports.ipynb` as well. These will be addressed next week (6/29-7/3)!**
 
 ## Purpose
 
