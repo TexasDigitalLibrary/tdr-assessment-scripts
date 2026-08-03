@@ -25,7 +25,7 @@ This repository uses [uv](https://docs.astral.sh/uv/) to manage its Python versi
 
 1. Install uv, if you don't already have it, by following the [official installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
 2. Clone this repository and open a terminal (either within an IDE or separately)in its root directory.
-3. Run `uv sync` to create a project-local virtual environment (*.venv*) and install the exact dependency versions from *uv.lock*.
+3. Run `uv sync` to create a project-local virtual environment (*.venv*) and install the exact dependency versions from *uv.lock*. If you are running in a OneDrive-linked system, you may need to run `uv sync --link-mode=copy`.
 4. Copy *.env.example* to *.env* and populate it with your own API key, institution details, and toggles (see [Config file and .env file](#config-file-and-env-file)).
 5. Make sure to always navigate to the folder with the scripts (either via a terminal or within an IDE) to keep running the venv, otherwise it may fail if you do not have local versions of certain modules.
 
