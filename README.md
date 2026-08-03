@@ -1,7 +1,7 @@
 # Assessment and reporting scripts for the Texas Data Repository
 
 ## Metadata
-* *Version*: 1.6.0
+* *Version*: 1.6.1
 * *Released*: 2026/08/03
 * *Author(s)*: Bryan Gee (UT Libraries, University of Texas at Austin; bryan.gee@austin.utexas.edu; ORCID: [0000-0003-4517-3290](https://orcid.org/0000-0003-4517-3290))
 * *Contributor(s)*: None
@@ -82,5 +82,5 @@ Following requests to implement manual rate limiting, large batches of iterative
 ### File requirements
 In addition to the technical infrastructure needed to run this script, two different files provided by TDL are necessary:
 1. **dataverse-reports-YYYYMMDD**: this folder contains the biweekly (now monthly?) reports run for each institution. The primary script here will concatenate all of the datasets and dataverses by importing each file's relevant sheets and will output a single concatenated file for each into that same folder.
-2. **Dataverse-users-YYYYMMDD.xlsx**: this Excel file contains all users in the system and cannot be reproduced by concatenating the 'users' tab from the biweekly reports. It is only necessary for the graphing components - there are no additional data retrieval components involved with this. This should be converted to a CSV for import.
+2. **Dataverse-users-YYYYMMDD.xlsx**: this Excel file contains all users in the system and cannot be reproduced by concatenating the 'users' tab from the biweekly reports. It is only necessary for the graphing components - there are no additional data retrieval components involved with this. 
 3. **logos**: this folder contains PNG or JPG images of each institution's logo. This is not shared on GitHub for trademark purposes and can either be requested from this repository's maintainer (Bryan) or recreated yourself by adding a *logos* subfolder within the same directory as the script and adding images with the name *{institution}_logo*. For standardization, you should use the TDR collection abbreviation (e.g., 'utexas' for UT Austin) that is used as the alias for your institution's collection.
