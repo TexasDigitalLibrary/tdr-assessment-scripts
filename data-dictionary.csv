@@ -30,36 +30,38 @@ data-dictionary,I,notes,additional freeform notes,string,,,,
 *_all-collections,T,institution_standardized,standardized name of the institution,string,No,Script manipulation,n/a,this is based on the controlled vocabulary for how to display an institution's name in graphs that is in the env.json file
 *_all-collections,U,collection_year_month_created,YYYY-MM formatted version of the date of collection creation,pseudo-date,No,Script manipulation,n/a,
 *_all-collections,V,collection_year_month_published,YYYY-MM formatted version of the date of collection publication,pseudo-date,No,Script manipulation,n/a,
-*_all-datasets-combined-with-collections,A,identifier,DOI without the 10.18738 shoulder,string,Yes,TDL report,Yes,
-*_all-datasets-combined-with-collections,B,publicationDate,the date (MM/DD/YYYY) of the initial dataset publication,date,No,TDL report,Yes,this is for the earliest published version and does not change for versioned datasets
-*_all-datasets-combined-with-collections,C,versionState,"whether the dataset is published (RELEASED), in draft (DRAFT), or deaccessioned (blank)",string,No,TDL report,Yes,
-*_all-datasets-combined-with-collections,D,depositor,dataset depositor's name,string,No,TDL report,Yes,
-*_all-datasets-combined-with-collections,E,createTime,creation timestamp for the most recent published/draft version of the dataset,time-date,No,TDL report,Yes,does NOT report the original creation timestamp for versioned datasets
-*_all-datasets-combined-with-collections,F,contentSize (MB),size of dataset in megabytes,float,No,TDL report,Yes,this has not been closely examined to determine whether it includes unpublished files or previously published files not present in the latest version
-*_all-datasets-combined-with-collections,G,totalFiles,total number of files in the dataset,integer,No,TDL report,Yes,
-*_all-datasets-combined-with-collections,H,doi,dataset DOI (non-URL version),string,Yes,Dataverse API,Yes,non-URL version
-*_all-datasets-combined-with-collections,I,dataset_subjects,list of subjects,list,No,Dataverse API,No,based on controlled vocabulary within Dataverse
-*_all-datasets-combined-with-collections,J,dataset_created_original,date of initial dataset creation,time-date,No,Dataverse API,Yes,get around issue of other creation timestamps being overwritten every time a new version is created
-*_all-datasets-combined-with-collections,K,dataset_title,dataset title,string,No,Dataverse API,Yes,
-*_all-datasets-combined-with-collections,L,collection_alias,collection alias (i.e. what is in the URL),string,Yes,Dataverse API,Yes,
-*_all-datasets-combined-with-collections,M,dataset_total_version,version number (major.minor format),float,No,Dataverse API,No,
-*_all-datasets-combined-with-collections,N,dataset_version_id,version id number in database,integer,Yes,Dataverse API,Yes,
-*_all-datasets-combined-with-collections,O,dataset_versioned,whether the dataset has been versioned or not,string,No,Script manipulation,n/a,does not include never-versioned datasets with a current draft
-*_all-datasets-combined-with-collections,P,dataset_persistent_url,dataset DOI (url version),string,Yes,Script manipulation,n/a,
-*_all-datasets-combined-with-collections,Q,dataset_id,dataset id number,integer,Yes,Dataverse API,Yes,
-*_all-datasets-combined-with-collections,R,dataset_contact,"string of dataset contact name(s), semi-colon-delimited if multiple",string,No,Dataverse API,No,
-*_all-datasets-combined-with-collections,S,dataset_email,"string of dataset contact email(s), semi-colon-delimited if multiple",string,No,Dataverse API,No,
-*_all-datasets-combined-with-collections,T,dataset_license,assigned license of dataset,string,No,Dataverse API,Yes,
-*_all-datasets-combined-with-collections,U,dataset_funders,"string of funder(s), semi-colon-delimited if multiple",string,No,Dataverse API,No,
-*_all-datasets-combined-with-collections,V,dataset_size,size of the dataset based on the sum of sizes of files in the current version,float,No,Script manipulation,n/a,does not account for previously published files that are not present in the current version
-*_all-datasets-combined-with-collections,W,file_restricted,whether any file in the current version of the dataset is restricted,boolean,No,Dataverse API,No,
-*_all-datasets-combined-with-collections,X,dataset_size_bin,size bin of dataset,string,No,Script manipulation,n/a,based on column AA ('dataset_size') and therefore subject to the same limitations
-*_all-datasets-combined-with-collections,Y,collection_name,collection name (i.e. what is displayed),string,No,Dataverse API,Yes,
-*_all-datasets-combined-with-collections,Z,dataset_dois,list of DOIs within the listed collection,list,Yes,Dataverse API,No,"as with column N in the *_all-collections file regarding ""one level down"" limitations"
-*_all-datasets-combined-with-collections,AA,institution_standardized,standardized name of the institution,string,No,Script manipulation,n/a,this is based on the controlled vocabulary for how to display an institution's name in graphs that is in the env.json file
-*_all-datasets-combined-with-collections,AB,created_final,oldest creation timestamp for a dataset,time-date,No,Script manipulation,n/a,"uses a series of logic to identify the earliest version (if published) to get around issue of other creation timestamps being overwritten every time a new version is created; this is slightly different than column M (created_original) because that field comes from the Search API endpoint, which does not expose unpublished datasets, so it needs to use a different field for drafts"
-*_all-datasets-combined-with-collections,AC,year_month_created,YYYY-MM formatted version of the date of collection creation,pseudo-date,No,Script manipulation,n/a,
-*_all-datasets-combined-with-collections,AD,year_month_published,YYYY-MM formatted version of the date of collection publication,pseudo-date,No,Script manipulation,n/a,
+*_all-datasets-combined-with-collections,A,persistentUrl,DOI URL,string,Yes,TDL report,Yes,
+*_all-datasets-combined-with-collections,B,identifier,DOI without the 10.18738 shoulder,string,Yes,TDL report,Yes,
+*_all-datasets-combined-with-collections,C,publicationDate,the date (MM/DD/YYYY) of the initial dataset publication,date,No,TDL report,Yes,this is for the earliest published version and does not change for versioned datasets
+*_all-datasets-combined-with-collections,D,versionState,"whether the dataset is published (RELEASED), in draft (DRAFT), or deaccessioned (blank)",string,No,TDL report,Yes,
+*_all-datasets-combined-with-collections,E,depositor,dataset depositor's name,string,No,TDL report,Yes,
+*_all-datasets-combined-with-collections,F,createTime,creation timestamp for the most recent published/draft version of the dataset,time-date,No,TDL report,Yes,does NOT report the original creation timestamp for versioned datasets
+*_all-datasets-combined-with-collections,G,contentSize (MB),size of dataset in megabytes,float,No,TDL report,Yes,this has not been closely examined to determine whether it includes unpublished files or previously published files not present in the latest version
+*_all-datasets-combined-with-collections,H,totalFiles,total number of files in the dataset,integer,No,TDL report,Yes,
+*_all-datasets-combined-with-collections,I,doi,dataset DOI (non-URL version),string,Yes,Dataverse API,Yes,non-URL version
+*_all-datasets-combined-with-collections,J,dataset_subjects,list of subjects,list,No,Dataverse API,No,based on controlled vocabulary within Dataverse
+*_all-datasets-combined-with-collections,K,dataset_created_original,date of initial dataset creation,time-date,No,Dataverse API,Yes,get around issue of other creation timestamps being overwritten every time a new version is created
+*_all-datasets-combined-with-collections,L,dataset_title,dataset title,string,No,Dataverse API,Yes,
+*_all-datasets-combined-with-collections,M,collection_alias,collection alias (i.e. what is in the URL),string,Yes,Dataverse API,Yes,
+*_all-datasets-combined-with-collections,N,dataset_total_version,version number (major.minor format),float,No,Dataverse API,No,
+*_all-datasets-combined-with-collections,O,dataset_version_id,version id number in database,integer,Yes,Dataverse API,Yes,
+*_all-datasets-combined-with-collections,P,dataset_versioned,whether the dataset has been versioned or not,string,No,Script manipulation,n/a,does not include never-versioned datasets with a current draft
+*_all-datasets-combined-with-collections,Q,dataset_persistent_url,dataset DOI (url version),string,Yes,Script manipulation,n/a,
+*_all-datasets-combined-with-collections,R,dataset_id,dataset id number,integer,Yes,Dataverse API,Yes,
+*_all-datasets-combined-with-collections,S,dataset_contact,"string of dataset contact name(s), semi-colon-delimited if multiple",string,No,Dataverse API,No,
+*_all-datasets-combined-with-collections,T,dataset_email,"string of dataset contact email(s), semi-colon-delimited if multiple",string,No,Dataverse API,No,
+*_all-datasets-combined-with-collections,U,dataset_license,assigned license of dataset,string,No,Dataverse API,Yes,
+*_all-datasets-combined-with-collections,V,dataset_funders,"string of funder(s), semi-colon-delimited if multiple",string,No,Dataverse API,No,
+*_all-datasets-combined-with-collections,W,dataset_size,size of the dataset based on the sum of sizes of files in the current version,float,No,Script manipulation,n/a,does not account for previously published files that are not present in the current version
+*_all-datasets-combined-with-collections,X,dataset_size_bin,size bin of dataset,string,No,Script manipulation,n/a,based on column W ('dataset_size') and therefore subject to the same limitations
+*_all-datasets-combined-with-collections,Y,file_restricted,whether any file in the current version of the dataset is restricted,boolean,No,Dataverse API,No,
+*_all-datasets-combined-with-collections,Z,collection_name,collection name (i.e. what is displayed),string,No,Dataverse API,Yes,
+*_all-datasets-combined-with-collections,AA,parent_collection_id,alias of the parent collection,string,Yes,Dataverse API,Yes,
+*_all-datasets-combined-with-collections,AB,dataset_dois,list of DOIs within the listed collection,list,Yes,Dataverse API,No,"as with column N in the *_all-collections file regarding ""one level down"" limitations"
+*_all-datasets-combined-with-collections,AC,institution_standardized,standardized name of the institution,string,No,Script manipulation,n/a,this is based on the controlled vocabulary for how to display an institution's name in graphs that is in the env.json file
+*_all-datasets-combined-with-collections,AD,created_final,oldest creation timestamp for a dataset,time-date,No,Script manipulation,n/a,"uses a series of logic to identify the earliest version (if published) to get around issue of other creation timestamps being overwritten every time a new version is created; this is slightly different than column M (created_original) because that field comes from the Search API endpoint, which does not expose unpublished datasets, so it needs to use a different field for drafts"
+*_all-datasets-combined-with-collections,AE,year_month_created,YYYY-MM formatted version of the date of collection creation,pseudo-date,No,Script manipulation,n/a,
+*_all-datasets-combined-with-collections,AF,year_month_published,YYYY-MM formatted version of the date of collection publication,pseudo-date,No,Script manipulation,n/a,
 *_all-datasets-combined-with-collections,variable,views_dc,views based on DataCite records,integer,No,DataCite API,Yes,
 *_all-datasets-combined-with-collections,variable,downloads_dc,downloads based on DataCite records,integer,No,DataCite API,Yes,
 *_all-datasets-combined-with-collections,variable,citations_dc,citations based on DataCite records,integer,No,DataCite API,Yes,"in this context, a 'citation' is any structured link to the dataset and may not be a 'citation' in a strict sense"
@@ -70,26 +72,26 @@ data-dictionary,I,notes,additional freeform notes,string,,,,
 *_all-files,B,doi,dataset DOI (non-URL version),string,Yes,Dataverse API,Yes,non-URL version
 *_all-files,C,dataset_id,dataset id number,integer,Yes,Dataverse API,Yes,
 *_all-files,D,dataset_total_version,version number (major.minor format),float,No,Dataverse API,No,
-*_all-files,E,in_current_version,whether the file is in the latest (published) version,boolean,No,Script manipulation,n/a,will always be TRUE if not running the Versions endpoint
-*_all-files,F,file_name,filename,string,No,Dataverse API,Yes,
-*_all-files,G,file_id,file id number,integer,Yes,Dataverse API,Yes,
-*_all-files,H,file_mime_type,mimeType as ingested by Dataverse,string,No,Dataverse API,Yes,
-*_all-files,I,category_mime_type,"categorical type based on the mimeType (e.g., text, image)",string,No,Script manipulation,n/a,
-*_all-files,J,file_tabular,whether the file is tabular,boolean,No,Dataverse API,Yes,
-*_all-files,K,file_size,file size (in bytes),integer,No,Dataverse API,Yes,
-*_all-files,L,file_storage_identifier,the address of the file in storage,string,Yes,Dataverse API,Yes,can be used to ID datasets stored in DOLCe allocation
-*_all-files,M,file_creation_date,date (MM/DD/YYYY) of file creation (initial upload),date,No,Dataverse API,Yes,"if a file is carried over unchanged between versions, this does not change. Replacement files (same filename) are treated as new files since they get a new file ID, so this does not change in that instance either"
-*_all-files,N,file_publication_date,date (MM/DD/YYYY) of file creation (initial publication),date,No,Dataverse API,Yes,"if a file is carried over unchanged between versions, this does not change. Replacement files (same filename) are treated as new files since they get a new file ID, so this does not change in that instance either"
-*_all-files,O,dataset_created_original,date of initial dataset creation,time-date,No,Dataverse API,Yes,get around issue of other creation timestamps being overwritten every time a new version is created
-*_all-files,P,file_size_bin,size bin of file,string,No,Script manipulation,n/a,derived from column AC
-*_all-files,Q,file_restricted,whether the file is restricted,boolean,No,Dataverse API,Yes,
-*_all-files,R,file_creation_year,year of file creation (initial upload),date,No,Script manipulation,n/a,derived from column AE
-*_all-files,S,file_publication_year,year of file publication (initial publication),date,No,Script manipulation,n/a,derived from column AF
-*_all-files,T,file_readme,whether the file is a README,boolean,No,Script manipulation,n/a,based on manually created set of strings to search for in filename
-*_all-files,U,file_codebook,whether the file is a codebook,boolean,No,Script manipulation,n/a,based on manually created set of strings to search for in filename
-*_all-files,V,file_data_dictionary,whether the file is a data dictionary,boolean,No,Script manipulation,n/a,based on manually created set of strings to search for in filename
-*_all-files,W,file_documentation,"""sums"" cols. AL-AN and returns TRUE if any one is TRUE",boolean,No,Script manipulation,n/a,
-*_all-files,X,friendly_format_manual,manually mapped mimeType based on controlled map in env.json file,string,No,Script manipulation,n/a,
-*_all-files,Y,contains_software,whether the file is a software file,boolean,No,Script manipulation,n/a,based on manually created controlled vocab for unambiguous software mimeTypes
-*_all-files,Z,contains_compressed,whether the file is a compressed archive,boolean,No,Script manipulation,n/a,based on manually created controlled vocab for unambiguous compressed archive mimeTypes
-*_all-files,AA,contains_microsoft_office,whether the file is a Microsoft Office format,boolean,No,Script manipulation,n/a,based on manually created controlled vocab for unambiguous MS Office mimeTypes
+*_all-files,E,file_name,filename,string,No,Dataverse API,Yes,
+*_all-files,F,file_id,file id number,integer,Yes,Dataverse API,Yes,
+*_all-files,G,file_mime_type,mimeType as ingested by Dataverse,string,No,Dataverse API,Yes,
+*_all-files,H,category_mime_type,"categorical type based on the mimeType (e.g., text, image)",string,No,Script manipulation,n/a,
+*_all-files,I,file_tabular,whether the file is tabular,boolean,No,Dataverse API,Yes,
+*_all-files,J,file_size,file size (in bytes),integer,No,Dataverse API,Yes,
+*_all-files,K,file_storage_identifier,the address of the file in storage,string,Yes,Dataverse API,Yes,can be used to ID datasets stored in DOLCe allocation
+*_all-files,L,file_creation_date,date (MM/DD/YYYY) of file creation (initial upload),date,No,Dataverse API,Yes,"if a file is carried over unchanged between versions, this does not change. Replacement files (same filename) are treated as new files since they get a new file ID, so this does not change in that instance either"
+*_all-files,M,file_publication_date,date (MM/DD/YYYY) of file creation (initial publication),date,No,Dataverse API,Yes,"if a file is carried over unchanged between versions, this does not change. Replacement files (same filename) are treated as new files since they get a new file ID, so this does not change in that instance either"
+*_all-files,N,dataset_created_original,date of initial dataset creation,time-date,No,Dataverse API,Yes,get around issue of other creation timestamps being overwritten every time a new version is created
+*_all-files,O,file_size_bin,size bin of file,string,No,Script manipulation,n/a,derived from column AC
+*_all-files,P,file_restricted,whether the file is restricted,boolean,No,Dataverse API,Yes,
+*_all-files,Q,file_creation_year,year of file creation (initial upload),date,No,Script manipulation,n/a,derived from column AE
+*_all-files,R,file_publication_year,year of file publication (initial publication),date,No,Script manipulation,n/a,derived from column AF
+*_all-files,S,file_readme,whether the file is a README,boolean,No,Script manipulation,n/a,based on manually created set of strings to search for in filename
+*_all-files,T,file_codebook,whether the file is a codebook,boolean,No,Script manipulation,n/a,based on manually created set of strings to search for in filename
+*_all-files,U,file_data_dictionary,whether the file is a data dictionary,boolean,No,Script manipulation,n/a,based on manually created set of strings to search for in filename
+*_all-files,V,file_documentation,"""sums"" cols. AL-AN and returns TRUE if any one is TRUE",boolean,No,Script manipulation,n/a,
+*_all-files,W,friendly_format_manual,manually mapped mimeType based on controlled map in env.json file,string,No,Script manipulation,n/a,
+*_all-files,X,contains_software,whether the file is a software file,boolean,No,Script manipulation,n/a,based on manually created controlled vocab for unambiguous software mimeTypes
+*_all-files,Y,contains_compressed,whether the file is a compressed archive,boolean,No,Script manipulation,n/a,based on manually created controlled vocab for unambiguous compressed archive mimeTypes
+*_all-files,Z,contains_microsoft_office,whether the file is a Microsoft Office format,boolean,No,Script manipulation,n/a,based on manually created controlled vocab for unambiguous MS Office mimeTypes
+*_all-files,AA,in_current_version,whether the file is in the latest (published) version,boolean,No,Script manipulation,n/a,will always be TRUE if not running the Versions endpoint
