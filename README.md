@@ -8,7 +8,7 @@
 * *License*: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
 * *README last updated*: 2026/08/03
 
-⚠️ *Notice of development freeze: As of August 2026, this codebase is not under active development. When development resumes, this notice will be removed.*
+⚠️ *Notice of development hiatus: As of August 2026, this codebase is not under active development. When development resumes, this notice will be removed.*
 
 ## Table of Contents
 1. [Purpose](#purpose)
