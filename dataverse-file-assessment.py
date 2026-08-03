@@ -7,7 +7,7 @@ import requests
 import sys
 import time
 from datetime import datetime, timedelta
-from utils import assign_size_bins, extract_max_version, retrieve_all_institutions
+from utils import assign_size_bins, env_bool, extract_max_version, retrieve_all_institutions
 
 ###########################################
 ####           Workflow set-up         ####
@@ -18,17 +18,17 @@ with open('config.json', 'r') as file:
     config = json.load(file)
 
 # toggle for test environment (incomplete run, faster to complete)
-test = config['TOGGLES']['test']
+test = env_bool('TEST_ENVIRONMENT')
 # toggle to only look at your/one institution in TDR
-only_my_institution = config['TOGGLES']['only_my_institution'] 
+only_my_institution = env_bool('ONLY_MY_INSTITUTION')
 # toggle for stage 3 retrieval
-versions_API = config['TOGGLES']['versions_api']
+versions_API = env_bool('VERSIONS_API')
 # toggle for retrieving metrics from DataCite
-metrics_dc = config['TOGGLES']['metrics_dc']
+metrics_dc = env_bool('METRICS_DC')
 # toggle for retrieving metrics from Dataverse
-metrics_dv = config['TOGGLES']['metrics_dv']
+metrics_dv = env_bool('METRICS_DV')
 # toggle for excluding unpublished
-exclude_drafts = config['TOGGLES']['exclude_drafts']
+exclude_drafts = env_bool('EXCLUDE_DRAFTS')
 # toggle for excluding deaccessioned
 exclude_deaccessioned = False
 ## this will change the query filter used in the Search API call for datasets and the filename from outputs
@@ -39,7 +39,7 @@ else:
     status = ''
     status_filename = 'ALL'
 # toggle to split dataset_entries_native by institution (IN DEVELOPMENT)
-split_institution_output = config['TOGGLES']['split_outputs']
+split_institution_output = env_bool('SPLIT_INSTITUTION_OUTPUT')
 
 # setting timestamp at start of script to calculate run time
 start_time = datetime.now() 
@@ -49,16 +49,16 @@ today = datetime.now().strftime('%Y%m%d')
 cutoff_months = 6
 
 # filename version of your institution's name
-my_institution_filename = config['INSTITUTION']['filename']
+my_institution_filename = os.environ['INSTITUTION_FILENAME']
 ## condition what goes in the filename based on toggle for which institution(s) to ping
 if only_my_institution:
     institution_filename = my_institution_filename
 else:
     institution_filename = 'all-institutions'
 # short-hand version of your institution's name
-my_institution_short_name = config['INSTITUTION']['myInstitution']
+my_institution_short_name = os.environ['MY_INSTITUTION']
 # root of your institution's dataverse
-subtree = config['INSTITUTION']['subtree']
+subtree = os.environ['INSTITUTION_SUBTREE']
 
 #######################################################################
 ####           Read in primary funder and affiliation maps         ####
@@ -250,7 +250,7 @@ page_increment_dataset = config['VARIABLES']['PAGE_INCREMENTS']['dataverse']
 k = 0
 
 headers_tdr = {
-    'X-Dataverse-key': config['KEYS']['dataverseToken']
+    'X-Dataverse-key': os.environ['DATAVERSE_TOKEN']
 }
 
 params_tdr_ut_austin = {
@@ -1126,7 +1126,7 @@ df_dataset_entries_aggregated = assign_size_bins(df_dataset_entries_aggregated, 
 
 df_dataset_entries_aggregated.to_csv(f'outputs/{today}_{institution_filename}_all-datasets-combined-{status_filename}.csv', index=False, encoding='utf-8-sig')
 cols_files_aggregated = ['filename', 'file_id', 'original_mime_type', 'dataset_size', 'dataset_size_bin', 'storage_identifier', 'file_creation_date', 'file_publication_date', 'created_original', 'file_size_bin', 'restricted']
-df_dataset_entries_aggregated_pruned = df_dataset_entries_aggregated[core_dataset_cols+cols_files_aggregated+['dataset_size_bin', 'persistentUrl']]
+df_dataset_entries_aggregated_pruned = df_dataset_entries_aggregated[core_dataset_cols+cols_files_aggregated+['persistentUrl']]
 
 df_dataset_entries_enriched = pd.merge(df_dataset_entries, df_dataset_entries_aggregated_pruned, on='persistentUrl', how='left')
 

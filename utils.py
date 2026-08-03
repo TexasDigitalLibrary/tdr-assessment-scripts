@@ -6,7 +6,13 @@ import pandas as pd
 import re
 import requests
 from datetime import datetime
+from dotenv import load_dotenv
 from urllib.parse import urlparse, parse_qs
+
+load_dotenv()
+
+def env_bool(key, default=False):
+    return os.environ.get(key, str(default)).strip().lower() in ('true', '1', 'yes')
 
 ### API retrieval functions ###
 

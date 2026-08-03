@@ -1,28 +1,4 @@
 {
-    "KEYS": {
-        "dataverseToken": ""
-    },
-    "EMAIL": {
-        "user_email": ""
-    },
-    "INSTITUTION":{
-        "name": "University of Texas at Austin",
-        "filename": "UT-austin",
-        "uniqueIdentifier": "Austin",
-        "ror": "https://ror.org/00hj54h04",
-        "myInstitution": "UT Austin",
-        "subtree": "utexas"
-    },
-    "TOGGLES":{
-        "test": true,
-        "metrics_dc": false,
-        "metrics_dv": false,
-        "only_my_institution": false,
-        "current_members": false,
-        "split_outputs": true,
-        "exclude_drafts": true,
-        "versions_api": false
-    },
     "VARIABLES": {
         "PAGE_SIZES": {
             "datacite_prod": 1000,
@@ -44,11 +20,12 @@
             "dataverse": 1
         }
     },
-    "GRAPHS":{
+    "GRAPHS": {
         "default_width": 14,
         "default_height": 7,
         "default_dpi": 300,
         "default_extension": "tiff",
+        "default_alpha": 0.3,
         "default_title": 18,
         "default_axis_titles": 16,
         "default_axis_labels": 14,
@@ -56,13 +33,13 @@
         "default_bar_labels": 13,
         "default_line_width": 3.5
     },
-    "TABLES":{
+    "TABLES": {
         "default_width": 15,
         "default_height": 0.5
     },
-    "SCHOOL_MAPS":{
+    "SCHOOL_MAPS": {
         "SCHOOL_COLORS": {
-            "Baylor U": "#154734", 
+            "Baylor U": "#154734",
             "Lamar U": "#DC0031",
             "SMU": "#354CA1",
             "TAMU": "#500000",
@@ -194,7 +171,7 @@
                 "UT Southwestern",
                 "UNT-HSC",
                 "UTHSCSA"
-                ],
+            ],
             "current_members_plus": [
                 "Baylor U",
                 "Lamar U",
@@ -208,16 +185,31 @@
                 "UT Austin",
                 "UT Southwestern",
                 "UNT-HSC",
-                "UTHSCSA", 
+                "UTHSCSA",
                 "No affiliation"
-                ]
+            ]
         },
-        "SCHOOL_GROUPS":
-        {
+        "SCHOOL_GROUPS": {
             "by_size": {
-                "Large": ["UT Austin", "TAMU"],
-                "Medium": ["U Houston", "Baylor U", "Texas Tech U", "Texas State U", "No affiliation", "Other affiliation"],
-                "Small": ["TAMIU", "UNT-HSC", "UTHSCSA", "Lamar U", "SMU"]
+                "Large": [
+                    "UT Austin",
+                    "TAMU"
+                ],
+                "Medium": [
+                    "U Houston",
+                    "Baylor U",
+                    "Texas Tech U",
+                    "Texas State U",
+                    "No affiliation",
+                    "Other affiliation"
+                ],
+                "Small": [
+                    "TAMIU",
+                    "UNT-HSC",
+                    "UTHSCSA",
+                    "Lamar U",
+                    "SMU"
+                ]
             }
         }
     },
