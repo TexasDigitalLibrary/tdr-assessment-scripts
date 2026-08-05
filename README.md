@@ -102,6 +102,7 @@ Parameters are split across two files:
   * 'UT Austin'
   * 'UTHSCSA'
   * 'UT Southwestern'
+  
 It is possible to update this if you really do not like your institution's shorthand name, but it has to be changed in many other places (mainly `config.json` but also some of the actual notebooks to avoid breaking the entire script)
 
 ### Third-party API access
