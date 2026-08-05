@@ -74,7 +74,7 @@ Parameters are split across two files:
 | Variable | Required? | Default | Description |
 |---|---|---|---|
 | `DATAVERSE_TOKEN` | Required | — | Your personal Dataverse API key, sent as the `X-Dataverse-key` header on all TDR API requests. Obtain one from your [Dataverse account](https://guides.dataverse.org/en/latest/api/auth.html). |
-| `MY_INSTITUTION` | Required | — | Short-hand name for your institution (e.g., `UT Austin`), used in filenames and console output. |
+| `MY_INSTITUTION` | Required | — | Short-hand name for your institution (e.g., `UT Austin`), used in filenames and console output. **Must pick value from controlled vocabulary** |
 | `INSTITUTION_FILENAME` | Required | — | Filename-safe version of your institution's name (e.g., `UT-austin`), used to build output filenames. |
 | `INSTITUTION_SUBTREE` | Required | — | Alias of your institution's Dataverse collection root (e.g., `utexas`), used to scope Search API queries. |
 | `TEST_ENVIRONMENT` | Boolean toggle | `false` | If `true`, retrieves only a handful of pages instead of a full run - useful for testing and troubleshooting. |
@@ -85,6 +85,24 @@ Parameters are split across two files:
 | `METRICS_DV` | Boolean toggle | `false` | If `true`, retrieves/uses native Dataverse usage metrics. |
 | `CURRENT_MEMBERS` | Boolean toggle | `false` | If `true`, restricts graphs/reports to current TDR member institutions, excluding former or newly added members. |
 | `SPLIT_INSTITUTION_OUTPUT` | Boolean toggle *(in development)* | `false` | If `true`, splits combined dataset output by institution. Automatically disabled when `ONLY_MY_INSTITUTION` is `true`. |
+
+`MY_INSTITUTION` **must** be entered from this controlled vocabulary:
+  * 'Baylor U'
+  * 'Lamar U'
+  * 'SMU'
+  * 'TAMU'
+  * 'TAMU Galveston'
+  * 'TAMIU'
+  * 'Texas State U'
+  * 'Texas Tech U'
+  * 'Texas Women's U'
+  * 'U Houston'
+  * 'UNT-HSC'
+  * 'UT Arlington'
+  * 'UT Austin'
+  * 'UTHSCSA'
+  * 'UT Southwestern'
+It is possible to update this if you really do not like your institution's shorthand name, but it has to be changed in many other places (mainly `config.json` but also some of the actual notebooks to avoid breaking the entire script)
 
 ### Third-party API access
 Users will need to create accounts for [Dataverse](https://guides.dataverse.org/en/latest/api/auth.html) in order to obtain personalized API keys, add those to the *.env* file (as `DATAVERSE_TOKEN`).
